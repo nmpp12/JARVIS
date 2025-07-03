@@ -1,5 +1,5 @@
 export class OllamaClient {
-    constructor(baseUrl = 'http://localhost:11434') {
+    constructor(baseUrl = 'http://localhost:3001/ollama') {
         this.baseUrl = baseUrl;
         this.currentModel = null;
         this.availableModels = [];
