@@ -65,19 +65,36 @@ class JARVISApp {
 
     async initializeAI() {
         try {
+            this.uiManager.addMessage('system', 'Connecting to Ollama service...');
             const models = await this.ollamaClient.getAvailableModels();
             this.uiManager.updateModelList(models);
             
             if (models.length > 0) {
                 this.ollamaClient.setModel(models[0]);
+                this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${models.join(', ')}`);
+            } else {
+                this.uiManager.addMessage('warning', 'Connected to Ollama but no models found. Please pull a model using: ollama pull llama2');
             }
         } catch (error) {
-            this.uiManager.addMessage('error', 'Failed to connect to Ollama. Please ensure Ollama is running.');
+            console.error('Ollama initialization failed:', error);
+            this.uiManager.addMessage('error', `Failed to connect to Ollama: ${error.message}`);
+            this.uiManager.addMessage('system', 'JARVIS is running in offline mode. To enable AI features:');
+            this.uiManager.addMessage('system', '1. Install Ollama from https://ollama.ai');
+            this.uiManager.addMessage('system', '2. Run: ollama serve');
+            this.uiManager.addMessage('system', '3. Pull a model: ollama pull llama2');
+            this.uiManager.addMessage('system', '4. Refresh this page');
         }
     }
 
     async processInput(text, inputType) {
         this.uiManager.addMessage('user', text);
+        
+        // Check if Ollama is connected before processing
+        if (!this.ollamaClient.isConnected) {
+            this.uiManager.addMessage('error', 'Cannot process AI requests - Ollama service is not connected. Please ensure Ollama is running.');
+            return;
+        }
+        
         this.uiManager.updateStatus('thinking');
 
         try {
@@ -97,6 +114,7 @@ class JARVISApp {
             }
 
         } catch (error) {
+            console.error('Processing error:', error);
             this.uiManager.addMessage('error', `Error: ${error.message}`);
         }
 

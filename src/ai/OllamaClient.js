@@ -3,17 +3,40 @@ export class OllamaClient {
         this.baseUrl = baseUrl;
         this.currentModel = null;
         this.availableModels = [];
+        this.isConnected = false;
     }
 
     async getAvailableModels() {
         try {
-            const response = await fetch(`${this.baseUrl}/api/tags`);
+            const response = await fetch(`${this.baseUrl}/api/tags`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // Add timeout to prevent hanging
+                signal: AbortSignal.timeout(5000)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
             this.availableModels = data.models || [];
+            this.isConnected = true;
             return this.availableModels.map(model => model.name);
         } catch (error) {
+            this.isConnected = false;
             console.error('Failed to fetch models:', error);
-            throw new Error('Could not connect to Ollama. Please ensure Ollama is running.');
+            
+            // Provide more specific error messages
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434');
+            } else if (error.name === 'TimeoutError') {
+                throw new Error('Connection to Ollama timed out. Please check if Ollama is running and accessible.');
+            } else {
+                throw new Error(`Ollama connection failed: ${error.message}`);
+            }
         }
     }
 
@@ -29,6 +52,10 @@ export class OllamaClient {
     }
 
     async generate(prompt, options = {}) {
+        if (!this.isConnected) {
+            throw new Error('Not connected to Ollama service');
+        }
+        
         if (!this.currentModel) {
             throw new Error('No model selected');
         }
@@ -50,7 +77,8 @@ export class OllamaClient {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
+                signal: AbortSignal.timeout(30000) // 30 second timeout for generation
             });
 
             if (!response.ok) {
@@ -61,11 +89,18 @@ export class OllamaClient {
             return data.response;
         } catch (error) {
             console.error('Generation failed:', error);
+            if (error.name === 'TimeoutError') {
+                throw new Error('Request timed out. The model may be taking too long to respond.');
+            }
             throw new Error(`Failed to generate response: ${error.message}`);
         }
     }
 
     async streamGenerate(prompt, onChunk, options = {}) {
+        if (!this.isConnected) {
+            throw new Error('Not connected to Ollama service');
+        }
+        
         if (!this.currentModel) {
             throw new Error('No model selected');
         }
@@ -89,6 +124,10 @@ export class OllamaClient {
                 },
                 body: JSON.stringify(requestBody)
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
