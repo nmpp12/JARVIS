@@ -16,6 +16,7 @@ export class UIManager {
                     <div class="logo">
                         <div class="arc-reactor"></div>
                         <h1>JARVIS</h1>
+                        <span class="subtitle">Advanced AI Assistant & OS Developer</span>
                     </div>
                     <div class="status-indicator ${this.currentStatus}">
                         <span class="status-dot"></span>
@@ -47,17 +48,32 @@ export class UIManager {
                                 Self-Improvement
                             </label>
                         </div>
+
+                        <div class="os-dev-toggle">
+                            <label>
+                                <input type="checkbox" id="osDevToggle" checked>
+                                OS Development Mode
+                            </label>
+                        </div>
                     </div>
 
                     <div class="input-area">
                         <div class="input-container">
-                            <input type="text" id="textInput" placeholder="Ask JARVIS anything..." />
+                            <input type="text" id="textInput" placeholder="Ask JARVIS about OS development, kernel programming, or anything else..." />
                             <button id="voiceButton" class="voice-btn">
                                 <svg viewBox="0 0 24 24" width="20" height="20">
                                     <path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                                     <path fill="currentColor" d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                                 </svg>
                             </button>
+                        </div>
+                        <div class="quick-commands">
+                            <button class="quick-cmd" data-command="Create a custom operating system from scratch">Create Custom OS</button>
+                            <button class="quick-cmd" data-command="Help me develop a Linux-based operating system">Linux-based OS</button>
+                            <button class="quick-cmd" data-command="Build an Ubuntu-based custom distribution">Ubuntu Derivative</button>
+                            <button class="quick-cmd" data-command="Explain kernel development">Kernel Development</button>
+                            <button class="quick-cmd" data-command="How to create device drivers">Device Drivers</button>
+                            <button class="quick-cmd" data-command="Filesystem development guide">Filesystem Dev</button>
                         </div>
                     </div>
                 </div>
@@ -66,6 +82,13 @@ export class UIManager {
                     <h3>Code Improvements</h3>
                     <div class="improvements-list" id="improvementsList"></div>
                     <button id="applyImprovements" class="apply-btn">Apply Improvements</button>
+                </div>
+
+                <div class="os-project-panel" id="osProjectPanel" style="display: none;">
+                    <h3>OS Development Project</h3>
+                    <div class="project-info" id="projectInfo"></div>
+                    <div class="project-files" id="projectFiles"></div>
+                    <div class="build-commands" id="buildCommands"></div>
                 </div>
             </div>
         `;
@@ -79,6 +102,7 @@ export class UIManager {
         const voiceButton = document.getElementById('voiceButton');
         const modelSelect = document.getElementById('modelSelect');
         const selfImprovementToggle = document.getElementById('selfImprovementToggle');
+        const quickCommands = document.querySelectorAll('.quick-cmd');
 
         textInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && textInput.value.trim()) {
@@ -105,6 +129,15 @@ export class UIManager {
             if (this.onSelfImprovementToggle) {
                 this.onSelfImprovementToggle(e.target.checked);
             }
+        });
+
+        quickCommands.forEach(button => {
+            button.addEventListener('click', () => {
+                const command = button.getAttribute('data-command');
+                if (this.onTextInput) {
+                    this.onTextInput(command);
+                }
+            });
         });
     }
 
@@ -141,7 +174,8 @@ export class UIManager {
             user: 'You',
             assistant: 'JARVIS',
             system: 'System',
-            error: 'Error'
+            error: 'Error',
+            warning: 'Warning'
         };
         return labels[type] || type;
     }
@@ -151,10 +185,12 @@ export class UIManager {
     }
 
     formatMessageContent(content) {
-        // Basic markdown-like formatting
+        // Enhanced markdown-like formatting for OS development content
         return content
             .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
             .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/\n/g, '<br>');
     }
 
@@ -199,6 +235,49 @@ export class UIManager {
                 <div class="improvement-location">${improvement.file}:${improvement.line}</div>
             </div>
         `).join('');
+
+        panel.style.display = 'block';
+    }
+
+    showOSProject(project) {
+        const panel = document.getElementById('osProjectPanel');
+        const info = document.getElementById('projectInfo');
+        const files = document.getElementById('projectFiles');
+        const commands = document.getElementById('buildCommands');
+        
+        if (!panel || !info || !files || !commands) return;
+
+        info.innerHTML = `
+            <div class="project-details">
+                <h4>${project.projectName}</h4>
+                <p><strong>Type:</strong> ${project.type}</p>
+                <p><strong>Architecture:</strong> ${project.architecture}</p>
+                <p><strong>Components:</strong> ${project.steps.length} build steps</p>
+            </div>
+        `;
+
+        files.innerHTML = `
+            <h4>Generated Files</h4>
+            <div class="file-list">
+                ${project.files.map(file => `
+                    <div class="file-item">
+                        <span class="file-path">${file.path}</span>
+                        <span class="file-size">${Math.round(file.content.length / 1024)}KB</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        commands.innerHTML = `
+            <h4>Build Commands</h4>
+            <div class="command-list">
+                ${project.buildCommands.map(cmd => `
+                    <div class="command-item">
+                        <code>${cmd}</code>
+                    </div>
+                `).join('')}
+            </div>
+        `;
 
         panel.style.display = 'block';
     }

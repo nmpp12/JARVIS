@@ -21,7 +21,8 @@ class JARVISApp {
         await this.setupEventListeners();
         await this.initializeAI();
         
-        this.uiManager.addMessage('system', 'JARVIS Advanced AI Assistant initialized. Ready for commands.');
+        this.uiManager.addMessage('system', 'JARVIS Advanced AI Assistant & OS Developer initialized. Ready for commands.');
+        this.uiManager.addMessage('system', 'I can help you create operating systems from scratch, develop Linux-based distributions, or build Ubuntu derivatives.');
         this.uiManager.updateStatus('online');
     }
 
@@ -83,14 +84,16 @@ class JARVISApp {
             this.uiManager.addMessage('system', '2. Run: ollama serve');
             this.uiManager.addMessage('system', '3. Pull a model: ollama pull llama2');
             this.uiManager.addMessage('system', '4. Refresh this page');
+            this.uiManager.addMessage('system', 'OS development features are still available in offline mode!');
         }
     }
 
     async processInput(text, inputType) {
         this.uiManager.addMessage('user', text);
         
-        // Check if Ollama is connected before processing
-        if (!this.ollamaClient.isConnected) {
+        // Check if Ollama is connected before processing AI requests
+        const requiresAI = !this.isOSDevCommand(text);
+        if (requiresAI && !this.ollamaClient.isConnected) {
             this.uiManager.addMessage('error', 'Cannot process AI requests - Ollama service is not connected. Please ensure Ollama is running.');
             return;
         }
@@ -113,12 +116,27 @@ class JARVISApp {
                 this.uiManager.showCodeImprovement(response.codeImprovement);
             }
 
+            if (response.osProject) {
+                this.uiManager.showOSProject(response.osProject);
+            }
+
         } catch (error) {
             console.error('Processing error:', error);
             this.uiManager.addMessage('error', `Error: ${error.message}`);
         }
 
         this.uiManager.updateStatus('online');
+    }
+
+    isOSDevCommand(text) {
+        const osKeywords = [
+            'operating system', 'os', 'kernel', 'bootloader', 'filesystem',
+            'device driver', 'memory management', 'scheduler', 'init system',
+            'package manager', 'linux', 'ubuntu', 'custom os', 'build os',
+            'create os', 'develop os', 'make os'
+        ];
+        
+        return osKeywords.some(keyword => text.toLowerCase().includes(keyword));
     }
 }
 
