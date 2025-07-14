@@ -21,9 +21,10 @@ const ollamaProxy = createProxyMiddleware({
       res.status(503).json({ 
         error: 'Ollama service unavailable', 
         message: 'Ollama service is not running. Please start it with: ollama serve',
+        code: 'OLLAMA_NOT_RUNNING',
         instructions: [
           '1. Install Ollama from https://ollama.ai',
-          '2. Run: ollama serve',
+          '2. Open a terminal and run: ollama serve (keep this terminal open)',
           '3. Pull a model: ollama pull llama2',
           '4. Refresh this page'
         ]
@@ -31,6 +32,7 @@ const ollamaProxy = createProxyMiddleware({
     } else {
       res.status(500).json({ 
         error: 'Proxy error', 
+        code: 'PROXY_ERROR',
         message: `Cannot connect to Ollama service: ${err.message}` 
       });
     }

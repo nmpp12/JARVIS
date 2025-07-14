@@ -29,11 +29,13 @@ export class OllamaClient {
             this.isConnected = false;
             console.error('Failed to fetch models:', error);
             
-            // Provide more specific error messages
-            if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                throw new Error('Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434');
-            } else if (error.name === 'TimeoutError') {
+            // Handle different error types
+            if (error.name === 'TimeoutError') {
                 throw new Error('Connection to Ollama timed out. Please check if Ollama is running and accessible.');
+            } else if (error.message && error.message.includes('503')) {
+                throw new Error('Ollama service is not running. Please start it with: ollama serve');
+            } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434');
             } else {
                 throw new Error(`Ollama connection failed: ${error.message}`);
             }

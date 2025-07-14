@@ -79,20 +79,22 @@ class JARVISApp {
         } catch (error) {
             console.error('Ollama initialization failed:', error);
             
-            // Check if it's a connection refused error (Ollama not running)
-            if (error.message.includes('503') || error.message.includes('ECONNREFUSED')) {
+            // Check if it's a connection refused error (Ollama not running)  
+            if (error.message.includes('503') || error.message.includes('ECONNREFUSED') || error.message.includes('not running')) {
                 this.uiManager.addMessage('warning', '⚠️ Ollama AI service is not running');
                 this.uiManager.addMessage('system', '🔧 To enable AI features, please:');
                 this.uiManager.addMessage('system', '   1. Install Ollama: https://ollama.ai/download');
-                this.uiManager.addMessage('system', '   2. Start service: ollama serve');
+                this.uiManager.addMessage('system', '   2. Open terminal and run: ollama serve (keep terminal open)');
                 this.uiManager.addMessage('system', '   3. Install a model: ollama pull llama2');
                 this.uiManager.addMessage('system', '   4. Refresh this page');
                 this.uiManager.addMessage('system', '');
                 this.uiManager.addMessage('system', '💡 JARVIS is running in offline mode');
-                this.uiManager.addMessage('system', '   OS development features are still available!');
+                this.uiManager.addMessage('system', '   All non-AI features (OS development, Finance, Health, etc.) are still available!');
+                this.uiManager.updateStatus('offline');
             } else {
                 this.uiManager.addMessage('error', `Failed to connect to Ollama: ${error.message}`);
-                this.uiManager.addMessage('system', 'JARVIS is running in offline mode. OS development features are still available!');
+                this.uiManager.addMessage('system', 'JARVIS is running in offline mode. All non-AI features are still available!');
+                this.uiManager.updateStatus('offline');
             }
         }
     }
