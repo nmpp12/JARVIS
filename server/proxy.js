@@ -17,10 +17,23 @@ const ollamaProxy = createProxyMiddleware({
   },
   onError: (err, req, res) => {
     console.error('Proxy error:', err.message);
-    res.status(500).json({ 
-      error: 'Proxy error', 
-      message: 'Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434' 
-    });
+    if (err.code === 'ECONNREFUSED') {
+      res.status(503).json({ 
+        error: 'Ollama service unavailable', 
+        message: 'Ollama service is not running. Please start it with: ollama serve',
+        instructions: [
+          '1. Install Ollama from https://ollama.ai',
+          '2. Run: ollama serve',
+          '3. Pull a model: ollama pull llama2',
+          '4. Refresh this page'
+        ]
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Proxy error', 
+        message: `Cannot connect to Ollama service: ${err.message}` 
+      });
+    }
   },
   onProxyReq: (proxyReq, req, res) => {
     console.log(`Proxying ${req.method} ${req.url} to Ollama`);
