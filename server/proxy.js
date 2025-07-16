@@ -65,8 +65,8 @@ const ollamaProxy = createProxyMiddleware({
     '^/ollama': '', // Remove /ollama prefix when forwarding to Ollama
   },
   onError: (err, req, res) => {
-    console.log('🔴 Proxy error:', err.message);
     if (err.code === 'ECONNREFUSED') {
+      // Ollama is not running - this is expected, don't log as error
       res.status(503).json({ 
         error: 'Ollama service unavailable', 
         message: 'Ollama service is not running. Please start it with: ollama serve',
@@ -79,6 +79,7 @@ const ollamaProxy = createProxyMiddleware({
         ]
       });
     } else {
+      console.log('🔴 Proxy error:', err.message);
       res.status(500).json({ 
         error: 'Proxy error', 
         code: 'PROXY_ERROR',
@@ -87,7 +88,7 @@ const ollamaProxy = createProxyMiddleware({
     }
   },
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`✅ Proxying ${req.method} ${req.url} to Ollama`);
+    // Only log successful proxy requests, not connection attempts
   }
 });
 
