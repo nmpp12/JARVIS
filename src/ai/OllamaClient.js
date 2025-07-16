@@ -18,7 +18,8 @@ export class OllamaClient {
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                this.isConnected = false;
+                return { error: `HTTP ${response.status}: ${response.statusText}`, models: [] };
             }
             
             const data = await response.json();
@@ -31,13 +32,13 @@ export class OllamaClient {
             
             // Handle different error types
             if (error.name === 'TimeoutError') {
-                throw new Error('Connection to Ollama timed out. Please check if Ollama is running and accessible.');
+                return { error: 'Connection to Ollama timed out. Please check if Ollama is running and accessible.', models: [] };
             } else if (error.message && error.message.includes('503')) {
-                throw new Error('Ollama service is not running. Please start it with: ollama serve');
+                return { error: 'Ollama service is not running. Please start it with: ollama serve', models: [] };
             } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                throw new Error('Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434');
+                return { error: 'Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434', models: [] };
             } else {
-                throw new Error(`Ollama connection failed: ${error.message}`);
+                return { error: `Ollama connection failed: ${error.message}`, models: [] };
             }
         }
     }

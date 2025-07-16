@@ -65,24 +65,28 @@ class JARVISApp {
     }
 
     async initializeAI() {
-        try {
-            this.uiManager.addMessage('system', 'Connecting to Ollama service...');
-            const models = await this.ollamaClient.getAvailableModels();
-            this.uiManager.updateModelList(models);
+        this.uiManager.addMessage('system', 'Connecting to Ollama service...');
+        const result = await this.ollamaClient.getAvailableModels();
+        
+        if (result.error) {
+            console.warn('Ollama initialization failed:', result.error);
+            this.handleOllamaOffline({ message: result.error });
+        } else if (Array.isArray(result)) {
+            // Success case - result is array of model names
+            this.uiManager.updateModelList(result);
             
-            if (models.length > 0) {
-                this.ollamaClient.setModel(models[0]);
-                this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${models.join(', ')}`);
+            if (result.length > 0) {
+                this.ollamaClient.setModel(result[0]);
+                this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
                 this.uiManager.updateStatus('online');
             } else {
                 this.uiManager.addMessage('warning', 'Connected to Ollama but no models found. Please pull a model using: ollama pull llama2');
                 this.uiManager.updateStatus('online');
             }
-        } catch (error) {
-            console.warn('Ollama initialization failed:', error.message);
-            
-            // Handle Ollama service unavailable gracefully
-            this.handleOllamaOffline(error);
+        } else {
+            // Fallback for unexpected response format
+            console.warn('Unexpected response format from Ollama');
+            this.handleOllamaOffline({ message: 'Unexpected response format from Ollama service' });
         }
     }
 
