@@ -1,10 +1,23 @@
 import { OSBuilder } from '../os/OSBuilder.js';
+import { FinanceManager } from '../skills/FinanceManager.js';
+import { HealthManager } from '../skills/HealthManager.js';
+import { EducationManager } from '../skills/EducationManager.js';
+import { BusinessManager } from '../skills/BusinessManager.js';
+import { LegalManager } from '../skills/LegalManager.js';
 
 export class AIAssistant {
     constructor(ollamaClient, selfImprovement) {
         this.ollama = ollamaClient;
         this.selfImprovement = selfImprovement;
         this.osBuilder = new OSBuilder();
+        
+        // Initialize skill managers with offline AI
+        this.financeManager = new FinanceManager();
+        this.healthManager = new HealthManager();
+        this.educationManager = new EducationManager();
+        this.businessManager = new BusinessManager();
+        this.legalManager = new LegalManager();
+        
         this.conversationHistory = [];
         this.capabilities = [
             'general_conversation',
@@ -77,15 +90,15 @@ export class AIAssistant {
         // Handle commands that don't require AI
         switch (intent) {
             case 'finance':
-                return this.financeManager.handleQuery(input, context);
+                return await this.financeManager.handleQuery(input, context);
             case 'health':
-                return this.healthManager.handleQuery(input, context);
+                return await this.healthManager.handleQuery(input, context);
             case 'education':
-                return this.educationManager.handleQuery(input, context);
+                return await this.educationManager.handleQuery(input, context);
             case 'business':
-                return this.businessManager.handleQuery(input, context);
+                return await this.businessManager.handleQuery(input, context);
             case 'legal':
-                return this.legalManager.handleQuery(input, context);
+                return await this.legalManager.handleQuery(input, context);
             case 'os_development':
                 return this.handleOSCommand(input, context);
             case 'self_improvement':
@@ -96,6 +109,50 @@ export class AIAssistant {
                     speak: false 
                 };
         }
+    }
+
+    classifyIntent(input) {
+        const lowerInput = input.toLowerCase();
+        
+        // Finance keywords
+        if (/budget|invest|money|finance|stock|bond|retirement|401k|debt|loan|credit|tax|saving|portfolio|dividend|compound|interest|wealth|income|expense|profit|loss|insurance|mortgage/.test(lowerInput)) {
+            return 'finance';
+        }
+        
+        // Health keywords
+        if (/health|nutrition|diet|exercise|fitness|workout|sleep|stress|mental|wellness|medical|doctor|symptom|weight|bmi|calories|protein|vitamin|medicine|therapy|anxiety|depression/.test(lowerInput)) {
+            return 'health';
+        }
+        
+        // Education keywords
+        if (/study|learn|education|school|college|university|course|class|exam|test|grade|homework|research|skill|career|job|resume|interview|degree|certification|training/.test(lowerInput)) {
+            return 'education';
+        }
+        
+        // Business keywords
+        if (/business|startup|entrepreneur|marketing|sales|customer|client|revenue|profit|strategy|competition|market|brand|product|service|team|hire|employee|management|leadership/.test(lowerInput)) {
+            return 'business';
+        }
+        
+        // Legal keywords
+        if (/legal|law|contract|agreement|lawsuit|court|attorney|lawyer|compliance|regulation|copyright|trademark|patent|llc|corporation|partnership|employment|privacy|gdpr|terms/.test(lowerInput)) {
+            return 'legal';
+        }
+        
+        // OS Development keywords
+        if (/operating system|os|kernel|bootloader|filesystem|device driver|memory management|scheduler|init system|package manager|linux|ubuntu|custom os|build os|create os|develop os|make os/.test(lowerInput)) {
+            return 'os_development';
+        }
+        
+        return 'general';
+    }
+
+    async handleOSCommand(input, context) {
+        // This method would handle OS development commands in offline mode
+        return {
+            text: 'OS development commands are available in offline mode. Please specify what you\'d like to do.',
+            speak: false
+        };
     }
 
     async analyzeIntent(input) {
