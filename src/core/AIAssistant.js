@@ -22,6 +22,11 @@ export class AIAssistant {
     }
 
     async processCommand(input, context = {}) {
+        // Handle offline mode
+        if (context.offlineMode) {
+            return this.handleOfflineCommand(input, context);
+        }
+
         // Add to conversation history
         this.conversationHistory.push({
             role: 'user',
@@ -64,6 +69,33 @@ export class AIAssistant {
         }
 
         return response;
+    }
+
+    async handleOfflineCommand(input, context) {
+        const intent = this.classifyIntent(input);
+        
+        // Handle commands that don't require AI
+        switch (intent) {
+            case 'finance':
+                return this.financeManager.handleQuery(input, context);
+            case 'health':
+                return this.healthManager.handleQuery(input, context);
+            case 'education':
+                return this.educationManager.handleQuery(input, context);
+            case 'business':
+                return this.businessManager.handleQuery(input, context);
+            case 'legal':
+                return this.legalManager.handleQuery(input, context);
+            case 'os_development':
+                return this.handleOSCommand(input, context);
+            case 'self_improvement':
+                return { text: 'Self-improvement features require AI capabilities. Please start Ollama service.', speak: false };
+            default:
+                return { 
+                    text: 'I can help with Finance, Health, Education, Business, Legal matters, and OS development in offline mode. For general AI assistance, please start the Ollama service.', 
+                    speak: false 
+                };
+        }
     }
 
     async analyzeIntent(input) {
