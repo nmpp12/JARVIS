@@ -73,39 +73,56 @@ class JARVISApp {
             if (models.length > 0) {
                 this.ollamaClient.setModel(models[0]);
                 this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${models.join(', ')}`);
+                this.uiManager.updateStatus('online');
             } else {
                 this.uiManager.addMessage('warning', 'Connected to Ollama but no models found. Please pull a model using: ollama pull llama2');
+                this.uiManager.updateStatus('online');
             }
         } catch (error) {
-            console.error('Ollama initialization failed:', error);
+            console.warn('Ollama initialization failed:', error.message);
             
-            // Check if it's a connection refused error (Ollama not running)  
-            if (error.message.includes('503') || error.message.includes('ECONNREFUSED') || error.message.includes('not running')) {
-                this.uiManager.addMessage('warning', '⚠️ Ollama AI service is not running');
-                this.uiManager.addMessage('system', '🔧 To enable AI features, please:');
-                this.uiManager.addMessage('system', '   1. Install Ollama: https://ollama.ai/download');
-                this.uiManager.addMessage('system', '   2. Open terminal and run: ollama serve (keep terminal open)');
-                this.uiManager.addMessage('system', '   3. Install a model: ollama pull llama2');
-                this.uiManager.addMessage('system', '   4. Refresh this page');
-                this.uiManager.addMessage('system', '');
-                this.uiManager.addMessage('system', '💡 JARVIS is running in offline mode');
-                this.uiManager.addMessage('system', '   All non-AI features (OS development, Finance, Health, etc.) are still available!');
-                this.uiManager.updateStatus('offline');
-            } else {
-                this.uiManager.addMessage('error', `Failed to connect to Ollama: ${error.message}`);
-                this.uiManager.addMessage('system', 'JARVIS is running in offline mode. All non-AI features are still available!');
-                this.uiManager.updateStatus('offline');
-            }
+            // Handle Ollama service unavailable gracefully
+            this.handleOllamaOffline(error);
         }
     }
 
+    handleOllamaOffline(error) {
+        // Check if it's a connection refused error (Ollama not running)  
+        if (error.message.includes('503') || error.message.includes('ECONNREFUSED') || error.message.includes('not running') || error.message.includes('Service Unavailable')) {
+            this.uiManager.addMessage('warning', '⚠️ Ollama AI service is not running');
+            this.uiManager.addMessage('system', '🔧 To enable AI features, please:');
+            this.uiManager.addMessage('system', '   1. Install Ollama: https://ollama.ai/download');
+            this.uiManager.addMessage('system', '   2. Open terminal and run: ollama serve (keep terminal open)');
+            this.uiManager.addMessage('system', '   3. Install a model: ollama pull llama2');
+            this.uiManager.addMessage('system', '   4. Refresh this page');
+            this.uiManager.addMessage('system', '');
+            this.uiManager.addMessage('system', '💡 JARVIS is running in offline mode');
+            this.uiManager.addMessage('system', '   All non-AI features (Finance, Health, Education, Business, Legal, OS development) are still available!');
+        } else {
+            this.uiManager.addMessage('warning', `Failed to connect to Ollama: ${error.message}`);
+            this.uiManager.addMessage('system', 'JARVIS is running in offline mode. All non-AI features are still available!');
+        }
+        this.uiManager.updateStatus('offline');
+    }
     async processInput(text, inputType) {
         this.uiManager.addMessage('user', text);
         
         // Check if Ollama is connected before processing AI requests
         const requiresAI = !this.isOSDevCommand(text);
         if (requiresAI && !this.ollamaClient.isConnected) {
-            this.uiManager.addMessage('error', 'Cannot process AI requests - Ollama service is not connected. Please ensure Ollama is running.');
+            this.uiManager.addMessage('warning', 'AI features unavailable - Ollama service is not connected. Processing with offline capabilities...');
+            
+            // Try to handle the request with offline capabilities
+            try {
+                const response = await this.aiAssistant.processCommand(text, {
+                    inputType,
+                    timestamp: new Date().toISOString(),
+                    offlineMode: true
+                });
+                this.uiManager.addMessage('assistant', response.text);
+            } catch (offlineError) {
+                this.uiManager.addMessage('system', 'This request requires AI capabilities. Please start Ollama service to enable full functionality.');
+            }
             return;
         }
         
