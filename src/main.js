@@ -64,7 +64,6 @@ class JARVISApp {
     }
 
     async initializeAI() {
-        if (result.error) {
             this.handleOllamaOffline({ message: result.error });
         } else if (Array.isArray(result)) {
             // Success case - result is array of model names
@@ -74,13 +73,10 @@ class JARVISApp {
                 this.ollamaClient.setModel(result[0]);
                 this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
                 this.uiManager.updateStatus('online');
-                }
-        }
+    }
         
-        this.uiManager.updateStatus('thinking');
         try {
             const response = await this.aiAssistant.processCommand(text, {
-                inputType,
                 timestamp: new Date().toISOString()
             });
 
@@ -88,7 +84,3 @@ class JARVISApp {
 
             if (response.suggestions) {
                 // Could add UI for suggestions in the future
-            }
-        }
-    }
-}
