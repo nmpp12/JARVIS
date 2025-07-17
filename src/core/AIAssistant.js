@@ -1,613 +1,86 @@
-import { OSBuilder } from '../os/OSBuilder.js';
-import { OfflineAI } from '../ai/OfflineAI.js';
+import { AIAssistant } from './core/AIAssistant.js';
+import { UIManager } from './ui/UIManager.js';
+import { VoiceManager } from './voice/VoiceManager.js';
+import { OllamaClient } from './ai/OllamaClient.js';
+import { SelfImprovement } from './ai/SelfImprovement.js';
+import './styles/main.css';
 
-export class AIAssistant {
-    constructor(ollamaClient, selfImprovement) {
-        this.ollama = ollamaClient;
-        this.selfImprovement = selfImprovement;
-        this.osBuilder = new OSBuilder();
+class JARVISApp {
+    constructor() {
+        this.ollamaClient = new OllamaClient();
+        this.selfImprovement = new SelfImprovement();
+        this.aiAssistant = new AIAssistant(this.ollamaClient, this.selfImprovement);
+        this.uiManager = new UIManager();
+        this.voiceManager = new VoiceManager();
         
-        // Initialize unified offline AI system
-        this.offlineAI = new OfflineAI();
-        
-        this.conversationHistory = [];
-        this.capabilities = [
-            'general_conversation',
-            'code_analysis',
-            'code_generation',
-            'self_improvement',
-            'system_commands',
-            'file_operations',
-            'os_development',
-            'kernel_development',
-            'bootloader_creation',
-            'driver_development',
-            'package_management'
-        ];
+        this.init();
     }
 
-    async processCommand(input, context = {}) {
-        // Add to conversation history
-        this.conversationHistory.push({
-            role: 'user',
-            content: input,
-            timestamp: context.timestamp || new Date().toISOString()
-        });
-
-        // Analyze command intent
-        const intent = await this.analyzeIntent(input);
+    async init() {
+        await this.setupUI();
+        await this.setupEventListeners();
+        await this.initializeAI();
         
-        let response;
-        
-        switch (intent.type) {
-            case 'os_development':
-                response = await this.handleOSDevelopment(input, intent);
-                break;
-            case 'self_improvement':
-                response = await this.handleSelfImprovement(input, intent);
-                break;
-            case 'code_analysis':
-                response = await this.handleCodeAnalysis(input, intent);
-                break;
-            case 'system_command':
-                response = await this.handleSystemCommand(input, intent);
-                break;
-            case 'finance':
-            case 'health':
-            case 'education':
-            case 'business':
-            case 'legal':
-                response = await this.handleSkillDomain(input, intent);
-                break;
-            default:
-                response = await this.handleGeneralQuery(input, intent);
-        }
-
-        // Add response to history
-        this.conversationHistory.push({
-            role: 'assistant',
-            content: response.text,
-            timestamp: new Date().toISOString()
-        });
-
-        // Trigger self-improvement if enabled
-        if (this.selfImprovement.isEnabled()) {
-            await this.selfImprovement.analyzeInteraction(input, response);
-        }
-
-        return response;
+        this.uiManager.addMessage('system', 'JARVIS Advanced AI Assistant & OS Developer initialized. Ready for commands.');
+        this.uiManager.addMessage('system', 'I can help you create operating systems from scratch, develop Linux-based distributions, or build Ubuntu derivatives.');
+        this.uiManager.updateStatus('online');
     }
 
-    async handleSkillDomain(input, intent) {
-        // Always use offline AI for skill domains - it's comprehensive and fast
-        const response = this.offlineAI.generateResponse(input, intent.type);
+    async setupUI() {
+        this.uiManager.render();
         
-        return {
-            text: response,
-            speak: intent.confidence > 0.7,
-            suggestions: this.offlineAI.getContextualSuggestions(intent.type)
+        // Setup voice visualization
+        this.voiceManager.onVoiceActivity = (level) => {
+            this.uiManager.updateVoiceLevel(level);
         };
     }
 
-    async analyzeIntent(input) {
-        const lowerInput = input.toLowerCase();
-        
-        // OS Development keywords (highest priority)
-        const osKeywords = [
-            'operating system', 'os', 'kernel', 'bootloader', 'filesystem',
-            'device driver', 'memory management', 'scheduler', 'init system',
-            'package manager', 'linux', 'ubuntu', 'custom os', 'build os',
-            'create os', 'develop os', 'make os'
-        ];
-        
-        if (osKeywords.some(keyword => lowerInput.includes(keyword))) {
-            return { 
-                type: 'os_development', 
-                confidence: 0.9, 
-                parameters: this.extractOSParameters(input) 
-            };
-        }
-        
-        // Finance keywords
-        if (/budget|invest|money|finance|stock|bond|retirement|401k|debt|loan|credit|tax|saving|portfolio|dividend|compound|interest|wealth|income|expense|profit|loss|insurance|mortgage/.test(lowerInput)) {
-            return { type: 'finance', confidence: 0.8, parameters: {} };
-        }
-        
-        // Health keywords
-        if (/health|nutrition|diet|exercise|fitness|workout|sleep|stress|mental|wellness|medical|doctor|symptom|weight|bmi|calories|protein|vitamin|medicine|therapy|anxiety|depression/.test(lowerInput)) {
-            return { type: 'health', confidence: 0.8, parameters: {} };
-        }
-        
-        // Education keywords
-        if (/study|learn|education|school|college|university|course|class|exam|test|grade|homework|research|skill|career|job|resume|interview|degree|certification|training/.test(lowerInput)) {
-            return { type: 'education', confidence: 0.8, parameters: {} };
-        }
-        
-        // Business keywords
-        if (/business|startup|entrepreneur|marketing|sales|customer|client|revenue|profit|strategy|competition|market|brand|product|service|team|hire|employee|management|leadership/.test(lowerInput)) {
-            return { type: 'business', confidence: 0.8, parameters: {} };
-        }
-        
-        // Legal keywords
-        if (/legal|law|contract|agreement|lawsuit|court|attorney|lawyer|compliance|regulation|copyright|trademark|patent|llc|corporation|partnership|employment|privacy|gdpr|terms/.test(lowerInput)) {
-            return { type: 'legal', confidence: 0.8, parameters: {} };
-        }
-        
-        // Self-improvement keywords
-        if (/improve yourself|analyze.*code|self.*improvement|optimize|enhance/.test(lowerInput)) {
-            return { type: 'self_improvement', confidence: 0.8, parameters: {} };
-        }
-        
-        // Code analysis keywords
-        if (/code|function|class|debug|error|syntax|programming|algorithm/.test(lowerInput)) {
-            return { type: 'code_analysis', confidence: 0.7, parameters: {} };
-        }
+    async setupEventListeners() {
+        // Text input
+        this.uiManager.onTextInput = async (text) => {
+            await this.processInput(text, 'text');
+        };
 
-        // Try Ollama for advanced intent analysis if available
-        if (this.ollama.isConnected) {
-            try {
-                const prompt = `Analyze the following user input and determine the intent. Respond with a JSON object containing:
-                - type: one of [general, self_improvement, code_analysis, system_command, file_operation, os_development, finance, health, education, business, legal]
-                - confidence: 0-1
-                - parameters: relevant extracted parameters
-                
-                User input: "${input}"`;
-                
-                const result = await this.ollama.generate(prompt);
-                return JSON.parse(result);
-            } catch (error) {
-                console.error('Intent analysis failed:', error);
+        // Voice input
+        this.uiManager.onVoiceCommand = async () => {
+            this.uiManager.updateStatus('listening');
+            const text = await this.voiceManager.listen();
+            if (text) {
+                await this.processInput(text, 'voice');
             }
-        }
+            this.uiManager.updateStatus('online');
+        };
 
-        return { type: 'general', confidence: 0.5, parameters: {} };
-    }
+        // Model selection
+        this.uiManager.onModelChange = (model) => {
+            this.ollamaClient.setModel(model);
+        };
 
-    extractOSParameters(input) {
-        const params = {};
-        const lowerInput = input.toLowerCase();
-
-        // Extract OS type
-        if (lowerInput.includes('from scratch') || lowerInput.includes('custom')) {
-            params.type = 'custom';
-        } else if (lowerInput.includes('linux')) {
-            params.type = 'linux-based';
-        } else if (lowerInput.includes('ubuntu')) {
-            params.type = 'ubuntu-based';
-        }
-
-        // Extract architecture
-        if (lowerInput.includes('x86_64') || lowerInput.includes('64-bit')) {
-            params.architecture = 'x86_64';
-        } else if (lowerInput.includes('arm64') || lowerInput.includes('aarch64')) {
-            params.architecture = 'arm64';
-        } else if (lowerInput.includes('i386') || lowerInput.includes('32-bit')) {
-            params.architecture = 'i386';
-        }
-
-        // Extract OS name
-        const nameMatch = input.match(/(?:call|name|called)\s+(?:it\s+)?([A-Za-z][A-Za-z0-9]*)/i);
-        if (nameMatch) {
-            params.name = nameMatch[1];
-        }
-
-        return params;
-    }
-
-    async handleOSDevelopment(input, intent) {
-        const lowerInput = input.toLowerCase();
-
-        if (lowerInput.includes('create') || lowerInput.includes('build') || lowerInput.includes('make')) {
-            return await this.createOperatingSystem(input, intent.parameters);
-        }
-
-        if (lowerInput.includes('kernel')) {
-            return await this.handleKernelDevelopment(input, intent.parameters);
-        }
-
-        if (lowerInput.includes('bootloader')) {
-            return await this.handleBootloaderDevelopment(input, intent.parameters);
-        }
-
-        if (lowerInput.includes('driver')) {
-            return await this.handleDriverDevelopment(input, intent.parameters);
-        }
-
-        if (lowerInput.includes('filesystem')) {
-            return await this.handleFilesystemDevelopment(input, intent.parameters);
-        }
-
-        // General OS development guidance
-        return {
-            text: `I can help you with operating system development! Here's what I can assist with:
-
-**OS Creation Options:**
-- **Custom OS from scratch**: Complete control, built from ground up
-- **Linux-based OS**: Customize existing Linux kernel and userspace
-- **Ubuntu-based OS**: Create custom Ubuntu derivative
-
-**Development Areas:**
-- Bootloader development (GRUB, custom bootloaders)
-- Kernel development (memory management, scheduling, interrupts)
-- Device driver development (PCI, USB, storage, network)
-- Filesystem implementation (VFS, ext2/3/4, custom filesystems)
-- Package management systems
-- Init systems and service management
-- GUI frameworks and desktop environments
-
-**Architecture Support:**
-- x86_64 (64-bit Intel/AMD)
-- ARM64 (AArch64)
-- i386 (32-bit x86)
-
-What specific aspect of OS development would you like to explore?`,
-            speak: true
+        // Self-improvement toggle
+        this.uiManager.onSelfImprovementToggle = (enabled) => {
+            this.selfImprovement.setEnabled(enabled);
+            this.uiManager.addMessage('system', `Self-improvement ${enabled ? 'enabled' : 'disabled'}`);
         };
     }
 
-    async createOperatingSystem(input, parameters) {
+    async initializeAI() {
+            this.handleOllamaOffline({ message: result.error });
+        } else if (Array.isArray(result)) {
+            // Success case - result is array of model names
+            this.uiManager.updateModelList(result);
+            
+            if (result.length > 0) {
+                this.ollamaClient.setModel(result[0]);
+                this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
+                this.uiManager.updateStatus('online');
+    }
+        
         try {
-            const config = {
-                name: parameters.name || 'CustomOS',
-                type: parameters.type || 'custom',
-                architecture: parameters.architecture || 'x86_64',
-                features: this.extractFeatures(input)
-            };
+            const response = await this.aiAssistant.processCommand(text, {
+                timestamp: new Date().toISOString()
+            });
 
-            const buildPlan = await this.osBuilder.createOS(config);
+            this.uiManager.addMessage('assistant', response.text);
 
-            return {
-                text: `I'll help you create ${config.name}, a ${config.type} operating system for ${config.architecture} architecture.
-
-**Build Plan Generated:**
-
-**Project Structure:**
-- Bootloader: ${config.type === 'custom' ? 'Custom GRUB-compatible bootloader' : 'Standard bootloader'}
-- Kernel: ${config.type === 'custom' ? 'Custom kernel with modern features' : 'Customized Linux kernel'}
-- Filesystem: Virtual filesystem with multiple format support
-- Drivers: Modular driver framework
-- Userspace: Shell, utilities, and package manager
-
-**Build Steps:**
-${buildPlan.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}
-
-**Key Features:**
-- Memory management with paging
-- Preemptive multitasking
-- Device driver framework
-- Package management system
-- Security features
-
-The complete source code, build system, and documentation have been generated. You can start building immediately with:
-
-\`\`\`bash
-make install-deps  # Install build dependencies
-make all          # Build the kernel
-make iso          # Create bootable ISO
-make test         # Test in QEMU emulator
-\`\`\`
-
-Would you like me to explain any specific component or help you customize particular features?`,
-                osProject: buildPlan,
-                speak: true
-            };
-        } catch (error) {
-            return {
-                text: `Error creating OS project: ${error.message}. Please provide more specific requirements.`,
-                speak: true
-            };
-        }
-    }
-
-    async handleKernelDevelopment(input, parameters) {
-        return {
-            text: `I'll help you with kernel development! Here are the key areas:
-
-**Kernel Architecture:**
-- **Boot Process**: Initialize hardware, set up memory management
-- **Memory Management**: Virtual memory, paging, heap allocation
-- **Process Management**: Scheduling, context switching, IPC
-- **Interrupt Handling**: Hardware interrupts, system calls
-- **Device Management**: Driver interface, device tree
-
-**Core Components:**
-- **Scheduler**: Preemptive, priority-based task scheduling
-- **Memory Manager**: Page tables, virtual address spaces
-- **VFS**: Virtual filesystem abstraction layer
-- **Network Stack**: TCP/IP implementation
-- **Security**: Access controls, capabilities
-
-**Development Tools:**
-- Cross-compiler toolchain (GCC)
-- Debugger (GDB with QEMU)
-- Emulator (QEMU, Bochs)
-- Build system (Make, CMake)
-
-**Testing Strategy:**
-- Unit tests for kernel components
-- Integration testing with QEMU
-- Hardware testing on real machines
-- Stress testing and benchmarks
-
-What specific kernel component would you like to develop or learn about?`,
-            speak: true
-        };
-    }
-
-    async handleBootloaderDevelopment(input, parameters) {
-        return {
-            text: `I'll guide you through bootloader development:
-
-**Bootloader Stages:**
-
-**Stage 1 (Boot Sector):**
-- 512 bytes in MBR
-- Load Stage 2 from disk
-- Switch to protected mode
-- Basic hardware initialization
-
-**Stage 2 (Extended Bootloader):**
-- Load kernel from filesystem
-- Set up memory map
-- Initialize graphics mode
-- Pass control to kernel
-
-**Modern Bootloaders:**
-- **GRUB**: Industry standard, multiboot support
-- **UEFI**: Modern firmware interface
-- **Custom**: Full control, specific requirements
-
-**Key Features:**
-- Filesystem support (FAT32, ext2/3/4)
-- Multiboot compliance
-- Configuration files
-- Recovery options
-- Secure boot support
-
-**Development Process:**
-1. Write assembly boot sector
-2. Implement disk I/O routines
-3. Add filesystem drivers
-4. Create kernel loader
-5. Test with emulators
-
-The generated bootloader code includes:
-- Real mode initialization
-- Protected mode setup
-- Kernel loading routines
-- Error handling
-- GRUB compatibility
-
-Would you like me to explain any specific bootloader component?`,
-            speak: true
-        };
-    }
-
-    async handleDriverDevelopment(input, parameters) {
-        return {
-            text: `I'll help you with device driver development:
-
-**Driver Framework:**
-- **Registration**: Dynamic driver loading/unloading
-- **Device Discovery**: PCI enumeration, device tree
-- **Resource Management**: IRQ, DMA, memory mapping
-- **Power Management**: Suspend/resume, power states
-
-**Driver Types:**
-- **Character Devices**: Serial ports, keyboards, mice
-- **Block Devices**: Hard drives, SSDs, optical drives
-- **Network Devices**: Ethernet, WiFi, Bluetooth
-- **Graphics Devices**: GPU drivers, framebuffers
-- **USB Devices**: Host controllers, device drivers
-
-**Development Process:**
-1. Study hardware specifications
-2. Implement device detection
-3. Create I/O routines
-4. Add interrupt handlers
-5. Implement power management
-6. Test with real hardware
-
-**Driver Interface:**
-- Standard entry points (init, cleanup, read, write)
-- Interrupt service routines
-- DMA handling
-- Error recovery
-
-**Testing Tools:**
-- Hardware emulation (QEMU)
-- Logic analyzers
-- Oscilloscopes
-- Protocol analyzers
-
-The generated driver framework provides:
-- Device registration system
-- Standard driver interface
-- Resource management
-- Example drivers (VGA, keyboard, ATA)
-
-What type of device driver would you like to develop?`,
-            speak: true
-        };
-    }
-
-    async handleFilesystemDevelopment(input, parameters) {
-        return {
-            text: `I'll guide you through filesystem development:
-
-**Filesystem Architecture:**
-- **VFS Layer**: Virtual filesystem abstraction
-- **Inode Management**: File metadata and indexing
-- **Block Allocation**: Free space management
-- **Directory Structure**: File organization
-- **Journaling**: Crash recovery and consistency
-
-**Filesystem Types:**
-- **ext2/3/4**: Linux standard filesystems
-- **FAT32**: Simple, widely compatible
-- **NTFS**: Windows filesystem
-- **Btrfs**: Modern copy-on-write filesystem
-- **Custom**: Specialized requirements
-
-**Key Components:**
-- **Superblock**: Filesystem metadata
-- **Inode Table**: File information storage
-- **Block Groups**: Efficient space allocation
-- **Directory Entries**: File name mapping
-- **Journal**: Transaction logging
-
-**Implementation Steps:**
-1. Design on-disk format
-2. Implement superblock operations
-3. Create inode management
-4. Add directory operations
-5. Implement file I/O
-6. Add journaling support
-
-**Features to Consider:**
-- Compression
-- Encryption
-- Snapshots
-- Deduplication
-- Extended attributes
-
-The generated VFS provides:
-- Filesystem registration
-- Standard file operations
-- Mount point management
-- Cache management
-
-Would you like to implement a specific filesystem or learn about VFS internals?`,
-            speak: true
-        };
-    }
-
-    extractFeatures(input) {
-        const features = [];
-        const lowerInput = input.toLowerCase();
-
-        if (lowerInput.includes('gui') || lowerInput.includes('desktop')) {
-            features.push('gui');
-        }
-        if (lowerInput.includes('network')) {
-            features.push('networking');
-        }
-        if (lowerInput.includes('security')) {
-            features.push('security');
-        }
-        if (lowerInput.includes('real-time') || lowerInput.includes('realtime')) {
-            features.push('realtime');
-        }
-        if (lowerInput.includes('embedded')) {
-            features.push('embedded');
-        }
-
-        return features;
-    }
-
-    async handleSelfImprovement(input, intent) {
-        if (input.toLowerCase().includes('improve yourself') || 
-            input.toLowerCase().includes('analyze your code')) {
-            
-            const improvements = await this.selfImprovement.analyzeCurrentCode();
-            
-            return {
-                text: `I've analyzed my code and found ${improvements.length} potential improvements. Would you like me to implement them?`,
-                codeImprovement: improvements,
-                speak: true
-            };
-        }
-
-        if (input.toLowerCase().includes('implement improvements')) {
-            const result = await this.selfImprovement.implementImprovements();
-            
-            return {
-                text: `I've implemented ${result.implemented} improvements. ${result.summary}`,
-                speak: true
-            };
-        }
-
-        return await this.handleGeneralQuery(input, intent);
-    }
-
-    async handleCodeAnalysis(input, intent) {
-        const prompt = `As an advanced AI assistant with OS development expertise, analyze this code-related request and provide a comprehensive response:
-
-        User request: "${input}"
-        
-        Provide detailed analysis, suggestions, and if applicable, code examples. Focus on operating system development, kernel programming, device drivers, or system-level programming if relevant.`;
-
-        if (this.ollama.isConnected) {
-            const result = await this.ollama.generate(prompt);
-            return {
-                text: result,
-                speak: false
-            };
-        } else {
-            return {
-                text: "I can help with code analysis, but I need the Ollama service to be running for detailed analysis. Please ensure Ollama is connected.",
-                speak: true
-            };
-        }
-    }
-
-    async handleSystemCommand(input, intent) {
-        // Handle system-level commands
-        if (input.toLowerCase().includes('status')) {
-            const status = await this.getSystemStatus();
-            return {
-                text: `System Status:\n${status}`,
-                speak: true
-            };
-        }
-
-        return await this.handleGeneralQuery(input, intent);
-    }
-
-    async handleGeneralQuery(input, intent) {
-        // Try Ollama first for general queries
-        if (this.ollama.isConnected) {
-            try {
-                const context = this.conversationHistory.slice(-5); // Last 5 messages for context
-                
-                const prompt = `You are JARVIS, an advanced AI assistant specializing in operating system development, kernel programming, and system-level software engineering. You also have comprehensive knowledge in finance, health, education, business, and legal matters. Respond to the user's query in a helpful and intelligent manner.
-
-
-                Conversation context:
-                ${context.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-                
-                Current query: "${input}"
-                
-                Provide a comprehensive and helpful response. If the query relates to specialized domains (OS development, finance, health, education, business, legal), provide detailed technical guidance.`;
-
-                const result = await this.ollama.generate(prompt);
-                
-                return {
-                    text: result,
-                    speak: intent.confidence > 0.7
-                };
-            } catch (error) {
-                console.error('Ollama query failed, falling back to offline AI:', error);
-            }
-        }
-        
-        // Fallback to offline AI for general queries
-        const response = this.offlineAI.generateResponse(input, 'general');
-        
-        return {
-            text: response,
-            speak: intent.confidence > 0.7
-        };
-    }
-
-    async getSystemStatus() {
-        const modelInfo = this.ollama.isConnected ? await this.ollama.getCurrentModel() : { name: 'Offline' };
-        const improvementStatus = this.selfImprovement.getStatus();
-        
-        return `AI System: ${this.ollama.isConnected ? `Ollama (${modelInfo.name}) + Offline AI` : 'Offline AI Only'}
-Self-Improvement: ${improvementStatus.enabled ? 'Enabled' : 'Disabled'}
-Conversation History: ${this.conversationHistory.length} messages
-Offline Capabilities: Finance, Health, Education, Business, Legal, OS Development
-Capabilities: ${this.capabilities.join(', ')}`;
-    }
-}
+            if (response.suggestions) {
+                // Could add UI for suggestions in the future
