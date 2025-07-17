@@ -64,7 +64,6 @@ class JARVISApp {
     }
 
     async initializeAI() {
-        this.uiManager.addMessage('system', 'Connecting to Ollama service...');
         
         if (result.error) {
             this.handleOllamaOffline({ message: result.error });
@@ -76,12 +75,8 @@ class JARVISApp {
                 this.ollamaClient.setModel(result[0]);
                 this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
                 this.uiManager.updateStatus('online');
-            } else {
-                }
-        }
     }
     async processInput(text, inputType) {
-        this.uiManager.addMessage('user', text);
         
         this.uiManager.updateStatus('thinking');
 
@@ -92,18 +87,6 @@ class JARVISApp {
             });
 
             this.uiManager.addMessage('assistant', response.text);
-            
-            if (response.speak && inputType === 'voice') {
-                await this.voiceManager.speak(response.text);
-            }
-
-            if (response.codeImprovement) {
-                this.uiManager.showCodeImprovement(response.codeImprovement);
-            }
-
-            if (response.osProject) {
-                this.uiManager.showOSProject(response.osProject);
-            }
 
             if (response.suggestions) {
                 // Could add UI for suggestions in the future
