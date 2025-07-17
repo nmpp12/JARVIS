@@ -111,25 +111,6 @@ class JARVISApp {
     async processInput(text, inputType) {
         this.uiManager.addMessage('user', text);
         
-        // Check if Ollama is connected before processing AI requests
-        const requiresAI = !this.isOSDevCommand(text);
-        if (requiresAI && !this.ollamaClient.isConnected) {
-            this.uiManager.addMessage('warning', 'AI features unavailable - Ollama service is not connected. Processing with offline capabilities...');
-            
-            // Try to handle the request with offline capabilities
-            try {
-                const response = await this.aiAssistant.processCommand(text, {
-                    inputType,
-                    timestamp: new Date().toISOString(),
-                    offlineMode: true
-                });
-                this.uiManager.addMessage('assistant', response.text);
-            } catch (offlineError) {
-                this.uiManager.addMessage('system', 'This request requires AI capabilities. Please start Ollama service to enable full functionality.');
-            }
-            return;
-        }
-        
         this.uiManager.updateStatus('thinking');
 
         try {
@@ -152,23 +133,15 @@ class JARVISApp {
                 this.uiManager.showOSProject(response.osProject);
             }
 
+            if (response.suggestions) {
+                // Could add UI for suggestions in the future
+            }
         } catch (error) {
             console.error('Processing error:', error);
             this.uiManager.addMessage('error', `Error: ${error.message}`);
         }
 
-        this.uiManager.updateStatus('online');
-    }
-
-    isOSDevCommand(text) {
-        const osKeywords = [
-            'operating system', 'os', 'kernel', 'bootloader', 'filesystem',
-            'device driver', 'memory management', 'scheduler', 'init system',
-            'package manager', 'linux', 'ubuntu', 'custom os', 'build os',
-            'create os', 'develop os', 'make os'
-        ];
-        
-        return osKeywords.some(keyword => text.toLowerCase().includes(keyword));
+        this.uiManager.updateStatus(this.ollamaClient.isConnected ? 'online' : 'offline');
     }
 }
 

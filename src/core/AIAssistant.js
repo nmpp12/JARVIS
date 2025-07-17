@@ -1,9 +1,5 @@
 import { OSBuilder } from '../os/OSBuilder.js';
-import { FinanceManager } from '../skills/FinanceManager.js';
-import { HealthManager } from '../skills/HealthManager.js';
-import { EducationManager } from '../skills/EducationManager.js';
-import { BusinessManager } from '../skills/BusinessManager.js';
-import { LegalManager } from '../skills/LegalManager.js';
+import { OfflineAI } from '../ai/OfflineAI.js';
 
 export class AIAssistant {
     constructor(ollamaClient, selfImprovement) {
@@ -11,12 +7,8 @@ export class AIAssistant {
         this.selfImprovement = selfImprovement;
         this.osBuilder = new OSBuilder();
         
-        // Initialize skill managers with offline AI
-        this.financeManager = new FinanceManager();
-        this.healthManager = new HealthManager();
-        this.educationManager = new EducationManager();
-        this.businessManager = new BusinessManager();
-        this.legalManager = new LegalManager();
+        // Initialize unified offline AI system
+        this.offlineAI = new OfflineAI();
         
         this.conversationHistory = [];
         this.capabilities = [
@@ -35,11 +27,6 @@ export class AIAssistant {
     }
 
     async processCommand(input, context = {}) {
-        // Handle offline mode
-        if (context.offlineMode) {
-            return this.handleOfflineCommand(input, context);
-        }
-
         // Add to conversation history
         this.conversationHistory.push({
             role: 'user',
@@ -65,6 +52,13 @@ export class AIAssistant {
             case 'system_command':
                 response = await this.handleSystemCommand(input, intent);
                 break;
+            case 'finance':
+            case 'health':
+            case 'education':
+            case 'business':
+            case 'legal':
+                response = await this.handleSkillDomain(input, intent);
+                break;
             default:
                 response = await this.handleGeneralQuery(input, intent);
         }
@@ -84,86 +78,27 @@ export class AIAssistant {
         return response;
     }
 
-    async handleOfflineCommand(input, context) {
-        const intent = this.classifyIntent(input);
+    async handleSkillDomain(input, intent) {
+        // Always use offline AI for skill domains - it's comprehensive and fast
+        const response = this.offlineAI.generateResponse(input, intent.type);
         
-        // Handle commands that don't require AI
-        switch (intent) {
-            case 'finance':
-                return await this.financeManager.handleQuery(input, context);
-            case 'health':
-                return await this.healthManager.handleQuery(input, context);
-            case 'education':
-                return await this.educationManager.handleQuery(input, context);
-            case 'business':
-                return await this.businessManager.handleQuery(input, context);
-            case 'legal':
-                return await this.legalManager.handleQuery(input, context);
-            case 'os_development':
-                return this.handleOSCommand(input, context);
-            case 'self_improvement':
-                return { text: 'Self-improvement features require AI capabilities. Please start Ollama service.', speak: false };
-            default:
-                return { 
-                    text: 'I can help with Finance, Health, Education, Business, Legal matters, and OS development in offline mode. For general AI assistance, please start the Ollama service.', 
-                    speak: false 
-                };
-        }
-    }
-
-    classifyIntent(input) {
-        const lowerInput = input.toLowerCase();
-        
-        // Finance keywords
-        if (/budget|invest|money|finance|stock|bond|retirement|401k|debt|loan|credit|tax|saving|portfolio|dividend|compound|interest|wealth|income|expense|profit|loss|insurance|mortgage/.test(lowerInput)) {
-            return 'finance';
-        }
-        
-        // Health keywords
-        if (/health|nutrition|diet|exercise|fitness|workout|sleep|stress|mental|wellness|medical|doctor|symptom|weight|bmi|calories|protein|vitamin|medicine|therapy|anxiety|depression/.test(lowerInput)) {
-            return 'health';
-        }
-        
-        // Education keywords
-        if (/study|learn|education|school|college|university|course|class|exam|test|grade|homework|research|skill|career|job|resume|interview|degree|certification|training/.test(lowerInput)) {
-            return 'education';
-        }
-        
-        // Business keywords
-        if (/business|startup|entrepreneur|marketing|sales|customer|client|revenue|profit|strategy|competition|market|brand|product|service|team|hire|employee|management|leadership/.test(lowerInput)) {
-            return 'business';
-        }
-        
-        // Legal keywords
-        if (/legal|law|contract|agreement|lawsuit|court|attorney|lawyer|compliance|regulation|copyright|trademark|patent|llc|corporation|partnership|employment|privacy|gdpr|terms/.test(lowerInput)) {
-            return 'legal';
-        }
-        
-        // OS Development keywords
-        if (/operating system|os|kernel|bootloader|filesystem|device driver|memory management|scheduler|init system|package manager|linux|ubuntu|custom os|build os|create os|develop os|make os/.test(lowerInput)) {
-            return 'os_development';
-        }
-        
-        return 'general';
-    }
-
-    async handleOSCommand(input, context) {
-        // This method would handle OS development commands in offline mode
         return {
-            text: 'OS development commands are available in offline mode. Please specify what you\'d like to do.',
-            speak: false
+            text: response,
+            speak: intent.confidence > 0.7,
+            suggestions: this.offlineAI.getContextualSuggestions(intent.type)
         };
     }
 
     async analyzeIntent(input) {
+        const lowerInput = input.toLowerCase();
+        
+        // OS Development keywords (highest priority)
         const osKeywords = [
             'operating system', 'os', 'kernel', 'bootloader', 'filesystem',
             'device driver', 'memory management', 'scheduler', 'init system',
             'package manager', 'linux', 'ubuntu', 'custom os', 'build os',
             'create os', 'develop os', 'make os'
         ];
-
-        const lowerInput = input.toLowerCase();
         
         if (osKeywords.some(keyword => lowerInput.includes(keyword))) {
             return { 
@@ -172,17 +107,52 @@ export class AIAssistant {
                 parameters: this.extractOSParameters(input) 
             };
         }
+        
+        // Finance keywords
+        if (/budget|invest|money|finance|stock|bond|retirement|401k|debt|loan|credit|tax|saving|portfolio|dividend|compound|interest|wealth|income|expense|profit|loss|insurance|mortgage/.test(lowerInput)) {
+            return { type: 'finance', confidence: 0.8, parameters: {} };
+        }
+        
+        // Health keywords
+        if (/health|nutrition|diet|exercise|fitness|workout|sleep|stress|mental|wellness|medical|doctor|symptom|weight|bmi|calories|protein|vitamin|medicine|therapy|anxiety|depression/.test(lowerInput)) {
+            return { type: 'health', confidence: 0.8, parameters: {} };
+        }
+        
+        // Education keywords
+        if (/study|learn|education|school|college|university|course|class|exam|test|grade|homework|research|skill|career|job|resume|interview|degree|certification|training/.test(lowerInput)) {
+            return { type: 'education', confidence: 0.8, parameters: {} };
+        }
+        
+        // Business keywords
+        if (/business|startup|entrepreneur|marketing|sales|customer|client|revenue|profit|strategy|competition|market|brand|product|service|team|hire|employee|management|leadership/.test(lowerInput)) {
+            return { type: 'business', confidence: 0.8, parameters: {} };
+        }
+        
+        // Legal keywords
+        if (/legal|law|contract|agreement|lawsuit|court|attorney|lawyer|compliance|regulation|copyright|trademark|patent|llc|corporation|partnership|employment|privacy|gdpr|terms/.test(lowerInput)) {
+            return { type: 'legal', confidence: 0.8, parameters: {} };
+        }
+        
+        // Self-improvement keywords
+        if (/improve yourself|analyze.*code|self.*improvement|optimize|enhance/.test(lowerInput)) {
+            return { type: 'self_improvement', confidence: 0.8, parameters: {} };
+        }
+        
+        // Code analysis keywords
+        if (/code|function|class|debug|error|syntax|programming|algorithm/.test(lowerInput)) {
+            return { type: 'code_analysis', confidence: 0.7, parameters: {} };
+        }
 
-        // Fallback to Ollama for intent analysis if available
+        // Try Ollama for advanced intent analysis if available
         if (this.ollama.isConnected) {
-            const prompt = `Analyze the following user input and determine the intent. Respond with a JSON object containing:
-            - type: one of [general, self_improvement, code_analysis, system_command, file_operation, os_development]
-            - confidence: 0-1
-            - parameters: relevant extracted parameters
-            
-            User input: "${input}"`;
-
             try {
+                const prompt = `Analyze the following user input and determine the intent. Respond with a JSON object containing:
+                - type: one of [general, self_improvement, code_analysis, system_command, file_operation, os_development, finance, health, education, business, legal]
+                - confidence: 0-1
+                - parameters: relevant extracted parameters
+                
+                User input: "${input}"`;
+                
                 const result = await this.ollama.generate(prompt);
                 return JSON.parse(result);
             } catch (error) {
@@ -595,28 +565,37 @@ Would you like to implement a specific filesystem or learn about VFS internals?`
     }
 
     async handleGeneralQuery(input, intent) {
-        if (!this.ollama.isConnected) {
-            return {
-                text: "I'm currently running in offline mode. To enable full AI capabilities, please ensure Ollama is running and connected. I can still help with OS development guidance and code generation.",
-                speak: true
-            };
+        // Try Ollama first for general queries
+        if (this.ollama.isConnected) {
+            try {
+                const context = this.conversationHistory.slice(-5); // Last 5 messages for context
+                
+                const prompt = `You are JARVIS, an advanced AI assistant specializing in operating system development, kernel programming, and system-level software engineering. You also have comprehensive knowledge in finance, health, education, business, and legal matters. Respond to the user's query in a helpful and intelligent manner.
+
+
+                Conversation context:
+                ${context.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+                
+                Current query: "${input}"
+                
+                Provide a comprehensive and helpful response. If the query relates to specialized domains (OS development, finance, health, education, business, legal), provide detailed technical guidance.`;
+
+                const result = await this.ollama.generate(prompt);
+                
+                return {
+                    text: result,
+                    speak: intent.confidence > 0.7
+                };
+            } catch (error) {
+                console.error('Ollama query failed, falling back to offline AI:', error);
+            }
         }
-
-        const context = this.conversationHistory.slice(-5); // Last 5 messages for context
         
-        const prompt = `You are JARVIS, an advanced AI assistant specializing in operating system development, kernel programming, and system-level software engineering. Respond to the user's query in a helpful and intelligent manner.
-
-        Conversation context:
-        ${context.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-        
-        Current query: "${input}"
-        
-        Provide a comprehensive and helpful response. If the query relates to OS development, kernel programming, device drivers, or system programming, provide detailed technical guidance.`;
-
-        const result = await this.ollama.generate(prompt);
+        // Fallback to offline AI for general queries
+        const response = this.offlineAI.generateResponse(input, 'general');
         
         return {
-            text: result,
+            text: response,
             speak: intent.confidence > 0.7
         };
     }
@@ -625,10 +604,10 @@ Would you like to implement a specific filesystem or learn about VFS internals?`
         const modelInfo = this.ollama.isConnected ? await this.ollama.getCurrentModel() : { name: 'Offline' };
         const improvementStatus = this.selfImprovement.getStatus();
         
-        return `Model: ${modelInfo.name}
+        return `AI System: ${this.ollama.isConnected ? `Ollama (${modelInfo.name}) + Offline AI` : 'Offline AI Only'}
 Self-Improvement: ${improvementStatus.enabled ? 'Enabled' : 'Disabled'}
 Conversation History: ${this.conversationHistory.length} messages
-OS Development: Available
+Offline Capabilities: Finance, Health, Education, Business, Legal, OS Development
 Capabilities: ${this.capabilities.join(', ')}`;
     }
 }

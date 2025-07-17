@@ -739,10 +739,15 @@ What type of intellectual property do you need to protect?`;
             health: 'nutrition, fitness, mental health, and wellness',
             education: 'learning strategies, career development, and skill building',
             business: 'entrepreneurship, marketing, strategy, and operations',
-            legal: 'contracts, business formation, and compliance'
+            legal: 'contracts, business formation, and compliance',
+            general: 'various topics and general assistance'
         };
 
-        return `I can help you with ${domainInfo[domain] || 'various topics'}. 
+        const suggestions = this.getContextualSuggestions(domain);
+        const suggestionText = suggestions.length > 0 ? 
+            `\n\n**Quick suggestions:**\n${suggestions.map(s => `• ${s}`).join('\n')}` : '';
+
+        return `I can help you with ${domainInfo[domain] || 'various topics and general assistance'}. 
 
 Some areas I specialize in:
 - Strategic planning and analysis
@@ -753,9 +758,11 @@ Some areas I specialize in:
 Could you be more specific about what you'd like to know? For example:
 - What specific challenge are you facing?
 - What outcome are you trying to achieve?
-- What's your current situation or experience level?
+- What's your current situation or experience level?${suggestionText}
 
-This will help me provide more targeted and useful guidance.`;
+This will help me provide more targeted and useful guidance.
+
+${domain === 'general' ? '**Available offline domains:** Finance, Health, Education, Business, Legal, OS Development' : ''}`;
     }
 
     getContextualSuggestions(domain) {
@@ -794,6 +801,12 @@ This will help me provide more targeted and useful guidance.`;
                 'IP protection',
                 'Compliance guidance',
                 'Risk assessment'
+            ],
+            general: [
+                'Ask about finance, health, education, business, or legal topics',
+                'OS development and kernel programming',
+                'Code analysis and programming help',
+                'System administration guidance'
             ]
         };
 
