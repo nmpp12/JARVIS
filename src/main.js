@@ -64,16 +64,29 @@ class JARVISApp {
     }
 
     async initializeAI() {
-            this.handleOllamaOffline({ message: result.error });
-        } else if (Array.isArray(result)) {
-            // Success case - result is array of model names
-            this.uiManager.updateModelList(result);
+        try {
+            const result = await this.ollamaClient.getModels();
             
-            if (result.length > 0) {
-                this.ollamaClient.setModel(result[0]);
-                this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
-                this.uiManager.updateStatus('online');
+            if (result.error) {
+                this.handleOllamaOffline({ message: result.error });
+            } else if (Array.isArray(result)) {
+                // Success case - result is array of model names
+                this.uiManager.updateModelList(result);
+                
+                if (result.length > 0) {
+                    this.ollamaClient.setModel(result[0]);
+                    this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
+                    this.uiManager.updateStatus('online');
+                }
+            }
+        } catch (error) {
+            this.handleOllamaOffline(error);
+        }
     }
+
+    async processInput(text, type) {
+        this.uiManager.addMessage('user', text);
+        this.uiManager.updateStatus('thinking');
         
         try {
             const response = await this.aiAssistant.processCommand(text, {
@@ -84,3 +97,23 @@ class JARVISApp {
 
             if (response.suggestions) {
                 // Could add UI for suggestions in the future
+            }
+
+            if (response.voice && type === 'voice') {
+                await this.voiceManager.speak(response.text);
+            }
+        } catch (error) {
+            this.uiManager.addMessage('error', `Error: ${error.message}`);
+        }
+        
+        this.uiManager.updateStatus('online');
+    }
+
+    handleOllamaOffline(error) {
+        this.uiManager.addMessage('error', 'Ollama is not running. Please start Ollama to use AI features.');
+        this.uiManager.updateStatus('offline');
+    }
+}
+
+// Initialize the app
+const app = new JARVISApp();
