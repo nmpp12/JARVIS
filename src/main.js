@@ -75,6 +75,8 @@ class JARVISApp {
                 this.ollamaClient.setModel(result[0]);
                 this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
                 this.uiManager.updateStatus('online');
+                }
+        }
     }
     async processInput(text, inputType) {
         
