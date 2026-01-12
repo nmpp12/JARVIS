@@ -1,14 +1,22 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
 
 export default defineConfig({
+  root: '.',
+  base: '/',
   server: {
     port: 3000,
+    open: true,
     proxy: {
-      '/ollama': {
+      '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true
   }
-})
+});
