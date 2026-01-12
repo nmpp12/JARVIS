@@ -1,198 +1,180 @@
 /**
- * PluginManager - Manages all plugins in the JARVIS system
- * Handles loading, initialization, and communication with plugins
+ * Plugin Manager
+ * Manages loading, initialization, and execution of plugins
  */
+
 export class PluginManager {
-  constructor() {
-    this.plugins = new Map();
-    this.initialized = false;
-  }
-
-  /**
-   * Initialize plugin manager and load all plugins
-   */
-  async initialize() {
-    if (this.initialized) return;
-
-    console.log('[PluginManager] Initializing...');
-    
-    try {
-      // Load all plugins dynamically
-      await this.loadPlugins();
-      this.initialized = true;
-      console.log(`[PluginManager] Loaded ${this.plugins.size} plugins`);
-    } catch (error) {
-      console.error('[PluginManager] Initialization failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Load all available plugins
-   */
-  async loadPlugins() {
-    const pluginModules = [
-      './WeatherPlugin.js',
-      './NewsPlugin.js',
-      './CalendarPlugin.js',
-      './TaskPlugin.js',
-      './CodePlugin.js'
-    ];
-
-    for (const modulePath of pluginModules) {
-      try {
-        const module = await import(modulePath);
-        const PluginClass = module.default || Object.values(module)[0];
-        const plugin = new PluginClass();
-        await this.registerPlugin(plugin);
-      } catch (error) {
-        console.warn(`[PluginManager] Failed to load ${modulePath}:`, error.message);
-      }
-    }
-  }
-
-  /**
-   * Register a plugin
-   * @param {BasePlugin} plugin - Plugin instance
-   */
-  async registerPlugin(plugin) {
-    if (this.plugins.has(plugin.name)) {
-      throw new Error(`Plugin ${plugin.name} already registered`);
+    constructor() {
+        this.plugins = new Map();
+        this.initialized = false;
     }
 
-    // Check dependencies
-    for (const dep of plugin.dependencies) {
-      if (!this.plugins.has(dep)) {
-        throw new Error(`Plugin ${plugin.name} requires ${dep}`);
-      }
+    /**
+     * Initialize plugin manager and load all plugins
+     */
+    async initialize() {
+        try {
+            console.log('🔌 Initializing Plugin Manager...');
+            
+            // Import and register all plugins
+            await this.loadPlugins();
+            
+            this.initialized = true;
+            console.log(`✅ Plugin Manager initialized with ${this.plugins.size} plugins`);
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to initialize Plugin Manager:', error);
+            return false;
+        }
     }
 
-    await plugin.initialize();
-    this.plugins.set(plugin.name, plugin);
-    console.log(`[PluginManager] Registered: ${plugin.name} v${plugin.version}`);
-  }
-
-  /**
-   * Unregister a plugin
-   * @param {string} pluginName - Name of plugin to unregister
-   */
-  async unregisterPlugin(pluginName) {
-    const plugin = this.plugins.get(pluginName);
-    if (!plugin) {
-      throw new Error(`Plugin ${pluginName} not found`);
+    /**
+     * Load all available plugins
+     */
+    async loadPlugins() {
+        // Plugins will be loaded dynamically
+        // This is a placeholder for now
+        console.log('📦 Loading plugins...');
+        
+        // Plugins are registered manually for now
+        // In production, this could scan a directory
     }
 
-    await plugin.shutdown();
-    this.plugins.delete(pluginName);
-    console.log(`[PluginManager] Unregistered: ${pluginName}`);
-  }
+    /**
+     * Register a plugin
+     */
+    async registerPlugin(plugin) {
+        try {
+            if (!plugin.name) {
+                throw new Error('Plugin must have a name');
+            }
 
-  /**
-   * Get a specific plugin
-   * @param {string} pluginName - Name of the plugin
-   * @returns {BasePlugin} Plugin instance
-   */
-  getPlugin(pluginName) {
-    return this.plugins.get(pluginName);
-  }
-
-  /**
-   * Get all registered plugins
-   * @returns {Array<BasePlugin>} Array of plugin instances
-   */
-  getAllPlugins() {
-    return Array.from(this.plugins.values());
-  }
-
-  /**
-   * Get plugins by capability
-   * @param {string} capability - Capability to search for
-   * @returns {Array<BasePlugin>} Plugins with the capability
-   */
-  getPluginsByCapability(capability) {
-    return this.getAllPlugins().filter(plugin => 
-      plugin.enabled && plugin.capabilities.includes(capability)
-    );
-  }
-
-  /**
-   * Route request to appropriate plugin
-   * @param {Object} request - Request object
-   * @returns {Promise<Object>} Response from plugin
-   */
-  async routeRequest(request) {
-    const { pluginName, capability, action, data } = request;
-
-    // Try specific plugin first
-    if (pluginName) {
-      const plugin = this.getPlugin(pluginName);
-      if (plugin && plugin.enabled) {
-        return await plugin.handleRequest({ action, data });
-      }
-      throw new Error(`Plugin ${pluginName} not available`);
+            // Initialize plugin
+            await plugin.initialize();
+            
+            // Store plugin
+            this.plugins.set(plugin.name.toLowerCase(), plugin);
+            
+            console.log(`✅ Registered plugin: ${plugin.name}`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Failed to register plugin ${plugin.name}:`, error);
+            return false;
+        }
     }
 
-    // Find plugins by capability
-    if (capability) {
-      const plugins = this.getPluginsByCapability(capability);
-      if (plugins.length === 0) {
-        throw new Error(`No plugin available for capability: ${capability}`);
-      }
-      // Use first available plugin
-      return await plugins[0].handleRequest({ action, data });
+    /**
+     * Unregister a plugin
+     */
+    async unregisterPlugin(pluginName) {
+        const plugin = this.plugins.get(pluginName.toLowerCase());
+        
+        if (plugin) {
+            await plugin.cleanup();
+            this.plugins.delete(pluginName.toLowerCase());
+            console.log(`🗑️ Unregistered plugin: ${pluginName}`);
+            return true;
+        }
+        
+        return false;
     }
 
-    throw new Error('Invalid request: must specify pluginName or capability');
-  }
-
-  /**
-   * Enable a plugin
-   * @param {string} pluginName - Name of plugin to enable
-   */
-  enablePlugin(pluginName) {
-    const plugin = this.getPlugin(pluginName);
-    if (!plugin) {
-      throw new Error(`Plugin ${pluginName} not found`);
+    /**
+     * Get a specific plugin
+     */
+    getPlugin(pluginName) {
+        return this.plugins.get(pluginName.toLowerCase());
     }
-    plugin.enable();
-  }
 
-  /**
-   * Disable a plugin
-   * @param {string} pluginName - Name of plugin to disable
-   */
-  disablePlugin(pluginName) {
-    const plugin = this.getPlugin(pluginName);
-    if (!plugin) {
-      throw new Error(`Plugin ${pluginName} not found`);
+    /**
+     * Execute a plugin
+     */
+    async executePlugin(pluginName, params = {}) {
+        const plugin = this.getPlugin(pluginName);
+        
+        if (!plugin) {
+            throw new Error(`Plugin not found: ${pluginName}`);
+        }
+
+        if (!plugin.isEnabled()) {
+            throw new Error(`Plugin is disabled: ${pluginName}`);
+        }
+
+        // Validate parameters
+        if (!plugin.validate(params)) {
+            throw new Error(`Invalid parameters for plugin: ${pluginName}`);
+        }
+
+        // Execute plugin
+        return await plugin.execute(params);
     }
-    plugin.disable();
-  }
 
-  /**
-   * Get plugin manager status
-   * @returns {Object} Status information
-   */
-  getStatus() {
-    return {
-      initialized: this.initialized,
-      totalPlugins: this.plugins.size,
-      enabledPlugins: this.getAllPlugins().filter(p => p.enabled).length,
-      plugins: this.getAllPlugins().map(p => p.getMetadata())
-    };
-  }
-
-  /**
-   * Shutdown all plugins
-   */
-  async shutdown() {
-    console.log('[PluginManager] Shutting down all plugins...');
-    for (const plugin of this.plugins.values()) {
-      await plugin.shutdown();
+    /**
+     * Get all loaded plugins
+     */
+    getLoadedPlugins() {
+        return Array.from(this.plugins.values()).map(plugin => plugin.getInfo());
     }
-    this.plugins.clear();
-    this.initialized = false;
-  }
+
+    /**
+     * Enable a plugin
+     */
+    enablePlugin(pluginName) {
+        const plugin = this.getPlugin(pluginName);
+        if (plugin) {
+            plugin.enable();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Disable a plugin
+     */
+    disablePlugin(pluginName) {
+        const plugin = this.getPlugin(pluginName);
+        if (plugin) {
+            plugin.disable();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check if a plugin is loaded
+     */
+    hasPlugin(pluginName) {
+        return this.plugins.has(pluginName.toLowerCase());
+    }
+
+    /**
+     * Get plugin count
+     */
+    getPluginCount() {
+        return this.plugins.size;
+    }
+
+    /**
+     * List all plugin names
+     */
+    listPlugins() {
+        return Array.from(this.plugins.keys());
+    }
+
+    /**
+     * Cleanup all plugins
+     */
+    async cleanup() {
+        console.log('🧹 Cleaning up all plugins...');
+        
+        for (const plugin of this.plugins.values()) {
+            await plugin.cleanup();
+        }
+        
+        this.plugins.clear();
+        this.initialized = false;
+    }
 }
 
 export default PluginManager;
