@@ -1,136 +1,208 @@
 import express from 'express';
 import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import http from 'http';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
-// Enable CORS for all routes
-app.use(cors());
+// Middleware
+app.use(cors({
+    origin: '*',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Function to check if Ollama is running
-function checkOllamaStatus() {
-  return new Promise((resolve) => {
-    const req = http.request({
-      hostname: 'localhost',
-      port: 11434,
-      path: '/api/tags',
-      method: 'GET',
-      timeout: 2000
-    }, (res) => {
-      resolve(true);
-    });
-    
-    req.on('error', () => {
-      resolve(false);
-    });
-    
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(false);
-    });
-    
-    req.end();
-  });
-}
-
-// Middleware to check Ollama status before proxying
-app.use('/ollama', async (req, res, next) => {
-  const isOllamaRunning = await checkOllamaStatus();
-  
-  if (!isOllamaRunning) {
-    console.log('⚠️  Ollama service is not running - returning service unavailable');
-    return res.status(503).json({
-      error: 'Ollama service unavailable',
-      message: 'Ollama service is not running. Please start it with: ollama serve',
-      code: 'OLLAMA_NOT_RUNNING',
-      instructions: [
-        '1. Open a new terminal window',
-        '2. Run: ollama serve (keep this terminal open)',
-        '3. In another terminal, pull a model: ollama pull llama2',
-        '4. Refresh this page'
-      ]
-    });
-  }
-  
-  next();
-});
-
-// Proxy middleware for Ollama API
-const ollamaProxy = createProxyMiddleware({
-  target: 'http://localhost:11434',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/ollama': '', // Remove /ollama prefix when forwarding to Ollama
-  },
-  onError: (err, req, res) => {
-    if (err.code === 'ECONNREFUSED') {
-      // Ollama is not running - this is expected, don't log as error
-      res.status(503).json({ 
-        error: 'Ollama service unavailable', 
-        message: 'Ollama service is not running. Please start it with: ollama serve',
-        code: 'OLLAMA_NOT_RUNNING',
-        instructions: [
-          '1. Open a new terminal window',
-          '2. Run: ollama serve (keep this terminal open)',
-          '3. In another terminal, pull a model: ollama pull llama2',
-          '4. Refresh this page'
-        ]
-      });
-    } else {
-      console.log('🔴 Proxy error:', err.message);
-      res.status(500).json({ 
-        error: 'Proxy error', 
-        code: 'PROXY_ERROR',
-        message: `Cannot connect to Ollama service: ${err.message}` 
-      });
-    }
-  },
-  onProxyReq: (proxyReq, req, res) => {
-    // Only log successful proxy requests, not connection attempts
-  }
-});
-
-// Use the proxy for all /ollama routes
-app.use('/ollama', ollamaProxy);
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'Proxy server is running', port: PORT });
+    res.json({
+        status: 'online',
+        timestamp: new Date().toISOString(),
+        ollamaHost: OLLAMA_HOST,
+        port: PORT
+    });
 });
 
-// Ollama status check endpoint
-app.get('/ollama-status', async (req, res) => {
-  const isRunning = await checkOllamaStatus();
-  res.json({ 
-    running: isRunning,
-    message: isRunning ? 'Ollama is running' : 'Ollama is not running',
-    instructions: isRunning ? null : [
-      '1. Open a new terminal window',
-      '2. Run: ollama serve (keep this terminal open)',
-      '3. In another terminal, pull a model: ollama pull llama2',
-      '4. Refresh this page'
-    ]
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Proxy server running on http://localhost:${PORT}`);
-  console.log(`🔗 Ollama API available at http://localhost:${PORT}/ollama`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔍 Ollama status: http://localhost:${PORT}/ollama-status`);
-  
-  // Check Ollama status on startup
-  checkOllamaStatus().then(isRunning => {
-    if (isRunning) {
-      console.log('✅ Ollama service is running');
-    } else {
-      console.log('⚠️  Ollama service is not running');
-      console.log('   To start Ollama:');
-      console.log('   1. Open a new terminal window');
-      console.log('   2. Run: ollama serve');
-      console.log('   3. Keep that terminal open');
+// Ollama proxy configuration
+const ollamaProxy = createProxyMiddleware({
+    target: OLLAMA_HOST,
+    changeOrigin: true,
+    pathRewrite: {
+        '^/ollama': '/api'
+    },
+    onProxyReq: (proxyReq, req, res) => {
+        console.log(`[Proxy] ${req.method} ${req.path} -> ${OLLAMA_HOST}${req.path}`);
+        
+        // Handle JSON body
+        if (req.body) {
+            const bodyData = JSON.stringify(req.body);
+            proxyReq.setHeader('Content-Type', 'application/json');
+            proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+            proxyReq.write(bodyData);
+        }
+    },
+    onProxyRes: (proxyRes, req, res) => {
+        console.log(`[Proxy] Response: ${proxyRes.statusCode} from ${req.path}`);
+    },
+    onError: (err, req, res) => {
+        console.error('[Proxy Error]:', err.message);
+        res.status(500).json({
+            error: 'Proxy Error',
+            message: err.message,
+            suggestion: 'Make sure Ollama is running (ollama serve)'
+        });
     }
-  });
 });
+
+// Apply Ollama proxy
+app.use('/ollama', ollamaProxy);
+
+// Custom Ollama endpoints with better error handling
+app.post('/api/generate', async (req, res) => {
+    try {
+        const response = await fetch(`${OLLAMA_HOST}/api/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(req.body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama responded with status ${response.status}`);
+        }
+
+        // Stream the response
+        res.setHeader('Content-Type', 'application/json');
+        response.body.pipe(res);
+    } catch (error) {
+        console.error('[Generate Error]:', error.message);
+        res.status(500).json({
+            error: 'Generation failed',
+            message: error.message,
+            suggestion: 'Check if Ollama is running and the model is available'
+        });
+    }
+});
+
+app.post('/api/chat', async (req, res) => {
+    try {
+        const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(req.body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama responded with status ${response.status}`);
+        }
+
+        // Stream the response
+        res.setHeader('Content-Type', 'application/json');
+        response.body.pipe(res);
+    } catch (error) {
+        console.error('[Chat Error]:', error.message);
+        res.status(500).json({
+            error: 'Chat failed',
+            message: error.message,
+            suggestion: 'Check if Ollama is running and the model is available'
+        });
+    }
+});
+
+app.get('/api/tags', async (req, res) => {
+    try {
+        const response = await fetch(`${OLLAMA_HOST}/api/tags`);
+        
+        if (!response.ok) {
+            throw new Error(`Ollama responded with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('[Tags Error]:', error.message);
+        res.status(500).json({
+            error: 'Failed to fetch models',
+            message: error.message,
+            suggestion: 'Make sure Ollama is running (ollama serve)'
+        });
+    }
+});
+
+app.get('/api/show', async (req, res) => {
+    try {
+        const response = await fetch(`${OLLAMA_HOST}/api/show`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: req.query.name })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Ollama responded with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('[Show Error]:', error.message);
+        res.status(500).json({
+            error: 'Failed to show model info',
+            message: error.message
+        });
+    }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('[Server Error]:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message
+    });
+});
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        path: req.path
+    });
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log('\n' + '='.repeat(60));
+    console.log('🤖  JARVIS Proxy Server'.padStart(40));
+    console.log('='.repeat(60));
+    console.log(`\n✅  Server running on: http://localhost:${PORT}`);
+    console.log(`✅  Ollama host: ${OLLAMA_HOST}`);
+    console.log(`\n📡  Endpoints:`);
+    console.log(`    - Health: http://localhost:${PORT}/health`);
+    console.log(`    - Generate: http://localhost:${PORT}/api/generate`);
+    console.log(`    - Chat: http://localhost:${PORT}/api/chat`);
+    console.log(`    - Models: http://localhost:${PORT}/api/tags`);
+    console.log(`\n💡  Make sure Ollama is running: ollama serve`);
+    console.log('='.repeat(60) + '\n');
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('\n👋  Shutting down gracefully...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('\n👋  Shutting down gracefully...');
+    process.exit(0);
+});
+
+export default app;
