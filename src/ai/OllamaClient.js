@@ -1,161 +1,242 @@
+/**
+ * Ollama Client
+ * Handles communication with Ollama API through proxy server
+ */
+
 export class OllamaClient {
-    constructor(baseUrl = 'http://localhost:3001/ollama') {
-        this.baseUrl = baseUrl;
-        this.currentModel = null;
+    constructor() {
+        this.baseUrl = '/api';
+        this.currentModel = 'llama2';
         this.availableModels = [];
-        this.isConnected = false;
+        this.conversationHistory = [];
     }
 
-    async getAvailableModels() {
+    /**
+     * Initialize client and fetch available models
+     */
+    async initialize() {
         try {
-            const response = await fetch(`${this.baseUrl}/api/tags`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                // Add timeout to prevent hanging
-                signal: AbortSignal.timeout(5000)
-            });
+            await this.fetchModels();
+            console.log('✅ OllamaClient initialized');
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to initialize OllamaClient:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Fetch available models from Ollama
+     */
+    async fetchModels() {
+        try {
+            const response = await fetch(`${this.baseUrl}/tags`);
             
             if (!response.ok) {
-                this.isConnected = false;
-                return { error: `HTTP ${response.status}: ${response.statusText}`, models: [] };
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
             this.availableModels = data.models || [];
-            this.isConnected = true;
-            return this.availableModels.map(model => model.name);
-        } catch (error) {
-            this.isConnected = false;
-            console.error('Failed to fetch models:', error);
             
-            // Handle different error types
-            if (error.name === 'TimeoutError') {
-                return { error: 'Connection to Ollama timed out. Please check if Ollama is running and accessible.', models: [] };
-            } else if (error.message && error.message.includes('503')) {
-                return { error: 'Ollama service is not running. Please start it with: ollama serve', models: [] };
-            } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                return { error: 'Cannot connect to Ollama service. Please ensure Ollama is running on http://localhost:11434', models: [] };
-            } else {
-                return { error: `Ollama connection failed: ${error.message}`, models: [] };
+            // Set first available model as current if not set
+            if (this.availableModels.length > 0 && !this.currentModel) {
+                this.currentModel = this.availableModels[0].name;
             }
+            
+            return this.availableModels;
+        } catch (error) {
+            console.error('Failed to fetch models:', error);
+            throw error;
         }
     }
 
-    setModel(modelName) {
-        this.currentModel = modelName;
-    }
-
-    async getCurrentModel() {
-        return {
-            name: this.currentModel,
-            info: this.availableModels.find(m => m.name === this.currentModel)
-        };
-    }
-
+    /**
+     * Generate text completion
+     */
     async generate(prompt, options = {}) {
-        if (!this.isConnected) {
-            throw new Error('Not connected to Ollama service');
-        }
-        
-        if (!this.currentModel) {
-            throw new Error('No model selected');
-        }
-
-        const requestBody = {
-            model: this.currentModel,
-            prompt: prompt,
-            stream: false,
-            options: {
-                temperature: options.temperature || 0.7,
-                top_p: options.top_p || 0.9,
-                ...options
-            }
-        };
-
         try {
-            const response = await fetch(`${this.baseUrl}/api/generate`, {
+            const response = await fetch(`${this.baseUrl}/generate`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(requestBody),
-                signal: AbortSignal.timeout(30000) // 30 second timeout for generation
+                body: JSON.stringify({
+                    model: options.model || this.currentModel,
+                    prompt: prompt,
+                    stream: options.stream || false,
+                    options: {
+                        temperature: options.temperature || 0.7,
+                        top_p: options.top_p || 0.9,
+                        top_k: options.top_k || 40
+                    }
+                })
             });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            if (options.stream) {
+                return this.handleStreamResponse(response);
             }
 
             const data = await response.json();
             return data.response;
         } catch (error) {
-            console.error('Generation failed:', error);
-            if (error.name === 'TimeoutError') {
-                throw new Error('Request timed out. The model may be taking too long to respond.');
-            }
-            throw new Error(`Failed to generate response: ${error.message}`);
+            console.error('Generate error:', error);
+            throw error;
         }
     }
 
-    async streamGenerate(prompt, onChunk, options = {}) {
-        if (!this.isConnected) {
-            throw new Error('Not connected to Ollama service');
-        }
-        
-        if (!this.currentModel) {
-            throw new Error('No model selected');
-        }
-
-        const requestBody = {
-            model: this.currentModel,
-            prompt: prompt,
-            stream: true,
-            options: {
-                temperature: options.temperature || 0.7,
-                top_p: options.top_p || 0.9,
-                ...options
-            }
-        };
-
+    /**
+     * Chat with conversation context
+     */
+    async chat(message, options = {}) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/generate`, {
+            // Add user message to history
+            this.conversationHistory.push({
+                role: 'user',
+                content: message
+            });
+
+            const response = await fetch(`${this.baseUrl}/chat`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({
+                    model: options.model || this.currentModel,
+                    messages: this.conversationHistory,
+                    stream: options.stream || false,
+                    options: {
+                        temperature: options.temperature || 0.7,
+                        top_p: options.top_p || 0.9
+                    }
+                })
             });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+            if (options.stream) {
+                return this.handleStreamResponse(response, (content) => {
+                    // Add assistant response to history when streaming completes
+                    this.conversationHistory.push({
+                        role: 'assistant',
+                        content: content
+                    });
+                });
+            }
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+            const data = await response.json();
+            const assistantMessage = data.message.content;
+            
+            // Add assistant response to history
+            this.conversationHistory.push({
+                role: 'assistant',
+                content: assistantMessage
+            });
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n').filter(line => line.trim());
+            return assistantMessage;
+        } catch (error) {
+            console.error('Chat error:', error);
+            throw error;
+        }
+    }
 
-                for (const line of lines) {
-                    try {
-                        const data = JSON.parse(line);
-                        if (data.response) {
-                            onChunk(data.response);
+    /**
+     * Handle streaming response
+     */
+    async handleStreamResponse(response, onComplete) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+
+        return {
+            async *[Symbol.asyncIterator]() {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        
+                        if (done) {
+                            if (onComplete) onComplete(fullResponse);
+                            break;
                         }
-                    } catch (e) {
-                        // Skip invalid JSON lines
+
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n').filter(line => line.trim());
+
+                        for (const line of lines) {
+                            try {
+                                const data = JSON.parse(line);
+                                const content = data.response || data.message?.content || '';
+                                fullResponse += content;
+                                yield content;
+                            } catch (e) {
+                                console.warn('Failed to parse chunk:', e);
+                            }
+                        }
                     }
+                } finally {
+                    reader.releaseLock();
                 }
             }
+        };
+    }
+
+    /**
+     * Set current model
+     */
+    setModel(modelName) {
+        const model = this.availableModels.find(m => m.name === modelName);
+        if (model) {
+            this.currentModel = modelName;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get current model
+     */
+    getCurrentModel() {
+        return this.currentModel;
+    }
+
+    /**
+     * Get available models
+     */
+    getAvailableModels() {
+        return this.availableModels;
+    }
+
+    /**
+     * Clear conversation history
+     */
+    clearHistory() {
+        this.conversationHistory = [];
+    }
+
+    /**
+     * Get conversation history
+     */
+    getHistory() {
+        return this.conversationHistory;
+    }
+
+    /**
+     * Check if Ollama is available
+     */
+    async checkHealth() {
+        try {
+            const response = await fetch('/health');
+            return response.ok;
         } catch (error) {
-            console.error('Streaming failed:', error);
-            throw new Error(`Failed to stream response: ${error.message}`);
+            return false;
         }
     }
 }
+
+export default OllamaClient;
