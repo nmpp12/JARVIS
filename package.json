@@ -1,23 +1,36 @@
 {
   "name": "jarvis-ai-assistant",
+  "version": "2.0.0",
+  "description": "Advanced AI Assistant with Ollama integration, voice interface, and self-improvement capabilities",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"node server/proxy.js\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server/proxy.js"
+    "server": "node server/proxy.js",
+    "test": "echo \"Tests coming soon\" && exit 0"
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "http-proxy-middleware": "^2.0.6",
     "esprima": "^4.0.1",
-    "escodegen": "^2.1.0"
+    "escodegen": "^2.1.0",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "vite": "^5.0.8",
-    "concurrently": "^7.6.0"
-  }
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "ai",
+    "assistant",
+    "ollama",
+    "voice-recognition",
+    "jarvis",
+    "self-improvement"
+  ],
+  "author": "nmpp12",
+  "license": "MIT"
 }
