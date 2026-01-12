@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS - AI Assistant</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <!-- Main Container -->
+    <div id="app" class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">J</div>
+                    <h1>JARVIS</h1>
+                </div>
+                <button class="btn-minimize" id="btnMinimize" title="Minimize">
+                    <span class="icon">_</span>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="chat">
+                    <span class="icon">💬</span>
+                    <span class="label">Chat</span>
+                </button>
+                <button class="nav-item" data-view="tasks">
+                    <span class="icon">✅</span>
+                    <span class="label">Tasks</span>
+                </button>
+                <button class="nav-item" data-view="calendar">
+                    <span class="icon">📅</span>
+                    <span class="label">Calendar</span>
+                </button>
+                <button class="nav-item" data-view="code">
+                    <span class="icon">💻</span>
+                    <span class="label">Code</span>
+                </button>
+                <button class="nav-item" data-view="automations">
+                    <span class="icon">⚙️</span>
+                    <span class="label">Automations</span>
+                </button>
+                <button class="nav-item" data-view="memory">
+                    <span class="icon">🧠</span>
+                    <span class="label">Memory</span>
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <span class="icon">⚙️</span>
+                    <span class="label">Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot active"></span>
+                    <span class="status-text">Online</span>
+                </div>
+                <div class="model-selector">
+                    <select id="modelSelect" class="model-select">
+                        <option value="llama3">Llama 3</option>
+                        <option value="codellama">Code Llama</option>
+                        <option value="mistral">Mistral</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat View -->
+            <div class="view active" id="chatView">
+                <div class="view-header">
+                    <h2>Chat with JARVIS</h2>
+                    <div class="header-actions">
+                        <button class="btn-icon" id="btnVoice" title="Voice Input">
+                            <span class="icon">🎤</span>
+                        </button>
+                        <button class="btn-icon" id="btnClearChat" title="Clear Chat">
+                            <span class="icon">🗑️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Welcome message -->
+                        <div class="message assistant">
+                            <div class="message-avatar">J</div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <span class="message-sender">JARVIS</span>
+                                    <span class="message-time">now</span>
+                                </div>
+                                <div class="message-text">
+                                    Good evening. I'm JARVIS, your AI assistant. How may I help you today?
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <div class="input-wrapper">
+                            <textarea 
+                                id="chatInput" 
+                                class="chat-input" 
+                                placeholder="Ask JARVIS anything..."
+                                rows="1"
+                            ></textarea>
+                            <div class="input-actions">
+                                <button class="btn-icon" id="btnAttach" title="Attach File">
+                                    <span class="icon">📎</span>
+                                </button>
+                                <button class="btn-primary" id="btnSend" title="Send">
+                                    <span class="icon">➤</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-hints">
+                            <span class="hint">Press Enter to send, Shift+Enter for new line</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks View -->
+            <div class="view" id="tasksView">
+                <div class="view-header">
+                    <h2>Tasks</h2>
+                    <button class="btn-primary" id="btnAddTask">
+                        <span class="icon">+</span> Add Task
+                    </button>
+                </div>
+                <div class="view-content">
+                    <div class="task-list" id="taskList">
+                        <!-- Tasks will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div class="view" id="calendarView">
+                <div class="view-header">
+                    <h2>Calendar</h2>
+                    <button class="btn-primary" id="btnAddEvent">
+                        <span class="icon">+</span> Add Event
+                    </button>
+                </div>
+                <div class="view-content">
+                    <div class="calendar-container" id="calendar">
+                        <!-- Calendar will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code View -->
+            <div class="view" id="codeView">
+                <div class="view-header">
+                    <h2>Code Assistant</h2>
+                    <div class="header-actions">
+                        <select id="codeLanguage" class="language-select">
+                            <option value="javascript">JavaScript</option>
+                            <option value="python">Python</option>
+                            <option value="java">Java</option>
+                            <option value="cpp">C++</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="view-content">
+                    <div class="code-editor-container">
+                        <textarea id="codeEditor" class="code-editor" placeholder="Write or paste your code here..."></textarea>
+                        <div class="code-actions">
+                            <button class="btn" id="btnAnalyzeCode">Analyze</button>
+                            <button class="btn" id="btnOptimizeCode">Optimize</button>
+                            <button class="btn" id="btnExplainCode">Explain</button>
+                        </div>
+                    </div>
+                    <div class="code-output" id="codeOutput">
+                        <!-- Code analysis output -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Automations View -->
+            <div class="view" id="automationsView">
+                <div class="view-header">
+                    <h2>Automations</h2>
+                    <button class="btn-primary" id="btnCreateAutomation">
+                        <span class="icon">+</span> Create
+                    </button>
+                </div>
+                <div class="view-content">
+                    <div class="automation-tabs">
+                        <button class="tab-btn active" data-tab="routines">Routines</button>
+                        <button class="tab-btn" data-tab="workflows">Workflows</button>
+                        <button class="tab-btn" data-tab="scheduled">Scheduled</button>
+                    </div>
+                    <div class="automation-list" id="automationList">
+                        <!-- Automations will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory View -->
+            <div class="view" id="memoryView">
+                <div class="view-header">
+                    <h2>Memory & Context</h2>
+                    <div class="header-actions">
+                        <button class="btn" id="btnExportMemory">Export</button>
+                        <button class="btn btn-danger" id="btnClearMemory">Clear All</button>
+                    </div>
+                </div>
+                <div class="view-content">
+                    <div class="memory-stats" id="memoryStats">
+                        <!-- Memory statistics -->
+                    </div>
+                    <div class="memory-tabs">
+                        <button class="tab-btn active" data-tab="short">Short-term</button>
+                        <button class="tab-btn" data-tab="long">Long-term</button>
+                        <button class="tab-btn" data-tab="entities">Entities</button>
+                    </div>
+                    <div class="memory-content" id="memoryContent">
+                        <!-- Memory items will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div class="view" id="settingsView">
+                <div class="view-header">
+                    <h2>Settings</h2>
+                </div>
+                <div class="view-content">
+                    <div class="settings-container">
+                        <!-- Personality Settings -->
+                        <div class="settings-section">
+                            <h3>Personality</h3>
+                            <div class="setting-item">
+                                <label>Mood</label>
+                                <select id="moodSelect">
+                                    <option value="neutral">Neutral</option>
+                                    <option value="friendly">Friendly</option>
+                                    <option value="professional">Professional</option>
+                                    <option value="casual">Casual</option>
+                                    <option value="formal">Formal</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label>Response Style</label>
+                                <select id="styleSelect">
+                                    <option value="conversational">Conversational</option>
+                                    <option value="concise">Concise</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="technical">Technical</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Voice Settings -->
+                        <div class="settings-section">
+                            <h3>Voice</h3>
+                            <div class="setting-item">
+                                <label>Voice</label>
+                                <select id="voiceSelect">
+                                    <!-- Voices loaded dynamically -->
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label>Speech Rate</label>
+                                <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1">
+                                <span id="rateValue">1.0</span>
+                            </div>
+                            <div class="setting-item">
+                                <label>Enable Voice Responses</label>
+                                <input type="checkbox" id="enableVoice" checked>
+                            </div>
+                        </div>
+
+                        <!-- AI Settings -->
+                        <div class="settings-section">
+                            <h3>AI Configuration</h3>
+                            <div class="setting-item">
+                                <label>Ollama URL</label>
+                                <input type="text" id="ollamaUrl" value="http://localhost:11434">
+                            </div>
+                            <div class="setting-item">
+                                <label>Temperature</label>
+                                <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.7">
+                                <span id="temperatureValue">0.7</span>
+                            </div>
+                            <div class="setting-item">
+                                <label>Max Tokens</label>
+                                <input type="number" id="maxTokens" value="2000" min="100" max="8000" step="100">
+                            </div>
+                        </div>
+
+                        <!-- Learning Settings -->
+                        <div class="settings-section">
+                            <h3>Learning</h3>
+                            <div class="setting-item">
+                                <label>Enable Learning</label>
+                                <input type="checkbox" id="enableLearning" checked>
+                            </div>
+                            <div class="setting-item">
+                                <label>Enable Self-Improvement</label>
+                                <input type="checkbox" id="enableSelfImprovement">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>Initializing JARVIS...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
