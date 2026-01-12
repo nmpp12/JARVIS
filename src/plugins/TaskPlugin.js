@@ -1,307 +1,298 @@
-import { BasePlugin } from './BasePlugin.js';
-
 /**
- * TaskPlugin - Task and TODO list management
- * Provides comprehensive task tracking and project management
+ * Task Plugin
+ * Manages tasks, to-do lists, and reminders
  */
+
+import BasePlugin from './BasePlugin.js';
+
 export class TaskPlugin extends BasePlugin {
-  constructor() {
-    super();
-    this.name = 'task';
-    this.version = '1.0.0';
-    this.description = 'Manages tasks, todos, and project tracking';
-    this.capabilities = ['tasks', 'todos', 'projects'];
-    this.tasks = [];
-    this.projects = [];
-  }
-
-  async initialize() {
-    await super.initialize();
-    await this.loadTasks();
-  }
-
-  async handleRequest(request) {
-    const { action, data } = request;
-
-    try {
-      switch (action) {
-        case 'create_task':
-          return await this.createTask(data);
-        case 'get_tasks':
-          return await this.getTasks(data.filter);
-        case 'update_task':
-          return await this.updateTask(data.id, data.updates);
-        case 'complete_task':
-          return await this.completeTask(data.id);
-        case 'delete_task':
-          return await this.deleteTask(data.id);
-        case 'create_project':
-          return await this.createProject(data);
-        case 'get_project_tasks':
-          return await this.getProjectTasks(data.projectId);
-        default:
-          throw new Error(`Unknown action: ${action}`);
-      }
-    } catch (error) {
-      return this.handleError(error);
-    }
-  }
-
-  /**
-   * Create a new task
-   */
-  async createTask(taskData) {
-    const task = {
-      id: this.generateTaskId(),
-      title: taskData.title,
-      description: taskData.description || '',
-      status: taskData.status || 'todo',
-      priority: taskData.priority || 'medium',
-      dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
-      projectId: taskData.projectId || null,
-      tags: taskData.tags || [],
-      subtasks: taskData.subtasks || [],
-      created: new Date(),
-      modified: new Date(),
-      completed: null
-    };
-
-    this.tasks.push(task);
-    await this.saveTasks();
-
-    return {
-      success: true,
-      task,
-      message: 'Task created successfully'
-    };
-  }
-
-  /**
-   * Get tasks with optional filtering
-   */
-  async getTasks(filter = {}) {
-    let filtered = [...this.tasks];
-
-    // Apply filters
-    if (filter.status) {
-      filtered = filtered.filter(t => t.status === filter.status);
+    constructor() {
+        super('task', 'Manages tasks, to-do lists, and reminders');
+        this.tasks = [];
+        this.nextId = 1;
     }
 
-    if (filter.priority) {
-      filtered = filtered.filter(t => t.priority === filter.priority);
+    async initialize() {
+        await super.initialize();
+        this.loadTasks();
+        this.log('Task plugin ready');
+        return true;
     }
 
-    if (filter.projectId) {
-      filtered = filtered.filter(t => t.projectId === filter.projectId);
+    /**
+     * Validate parameters
+     */
+    validate(params) {
+        if (!params.action) {
+            return false;
+        }
+        
+        if (params.action === 'add' && !params.description) {
+            return false;
+        }
+        
+        return true;
     }
 
-    if (filter.tag) {
-      filtered = filtered.filter(t => t.tags.includes(filter.tag));
+    /**
+     * Execute task operation
+     */
+    async execute(params) {
+        try {
+            const action = params.action;
+
+            switch (action) {
+                case 'add':
+                    return this.addTask(params);
+                case 'list':
+                    return this.listTasks(params.filter);
+                case 'complete':
+                    return this.completeTask(params.id);
+                case 'delete':
+                    return this.deleteTask(params.id);
+                case 'update':
+                    return this.updateTask(params.id, params);
+                case 'search':
+                    return this.searchTasks(params.query);
+                default:
+                    return this.listTasks();
+            }
+        } catch (error) {
+            return this.handleError(error, 'executing task operation');
+        }
     }
 
-    if (filter.dueSoon) {
-      const soon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(t => t.dueDate && t.dueDate <= soon);
+    /**
+     * Add a new task
+     */
+    addTask(params) {
+        const task = {
+            id: this.nextId++,
+            description: params.description,
+            status: 'pending',
+            priority: params.priority || 'medium',
+            deadline: params.deadline || null,
+            tags: params.tags || [],
+            createdAt: new Date().toISOString(),
+            completedAt: null
+        };
+
+        this.tasks.push(task);
+        this.saveTasks();
+
+        this.log(`Task added: ${task.description}`);
+        return `✅ Task added: "${task.description}" (ID: ${task.id})`;
     }
 
-    // Sort by priority and due date
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    filtered.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      }
-      if (a.dueDate && b.dueDate) {
-        return a.dueDate - b.dueDate;
-      }
-      return 0;
-    });
+    /**
+     * List tasks
+     */
+    listTasks(filter = 'all') {
+        let filteredTasks = this.tasks;
 
-    return {
-      success: true,
-      count: filtered.length,
-      tasks: filtered
-    };
-  }
+        switch (filter) {
+            case 'pending':
+                filteredTasks = this.tasks.filter(t => t.status === 'pending');
+                break;
+            case 'completed':
+                filteredTasks = this.tasks.filter(t => t.status === 'completed');
+                break;
+            case 'high':
+                filteredTasks = this.tasks.filter(t => t.priority === 'high');
+                break;
+        }
 
-  /**
-   * Update a task
-   */
-  async updateTask(taskId, updates) {
-    const taskIndex = this.tasks.findIndex(t => t.id === taskId);
-    
-    if (taskIndex === -1) {
-      throw new Error('Task not found');
+        if (filteredTasks.length === 0) {
+            return 'No tasks found.';
+        }
+
+        return this.formatTaskList(filteredTasks);
     }
 
-    const task = this.tasks[taskIndex];
-    Object.assign(task, updates, { modified: new Date() });
-    
-    await this.saveTasks();
+    /**
+     * Complete a task
+     */
+    completeTask(id) {
+        const task = this.tasks.find(t => t.id === id);
 
-    return {
-      success: true,
-      task,
-      message: 'Task updated successfully'
-    };
-  }
+        if (!task) {
+            return `❌ Task not found: ${id}`;
+        }
 
-  /**
-   * Mark task as complete
-   */
-  async completeTask(taskId) {
-    const taskIndex = this.tasks.findIndex(t => t.id === taskId);
-    
-    if (taskIndex === -1) {
-      throw new Error('Task not found');
+        task.status = 'completed';
+        task.completedAt = new Date().toISOString();
+        this.saveTasks();
+
+        this.log(`Task completed: ${task.description}`);
+        return `✅ Task completed: "${task.description}"`;
     }
 
-    const task = this.tasks[taskIndex];
-    task.status = 'completed';
-    task.completed = new Date();
-    task.modified = new Date();
-    
-    await this.saveTasks();
+    /**
+     * Delete a task
+     */
+    deleteTask(id) {
+        const index = this.tasks.findIndex(t => t.id === id);
 
-    return {
-      success: true,
-      task,
-      message: 'Task completed!'
-    };
-  }
+        if (index === -1) {
+            return `❌ Task not found: ${id}`;
+        }
 
-  /**
-   * Delete a task
-   */
-  async deleteTask(taskId) {
-    const initialLength = this.tasks.length;
-    this.tasks = this.tasks.filter(t => t.id !== taskId);
-    
-    if (this.tasks.length === initialLength) {
-      throw new Error('Task not found');
+        const task = this.tasks[index];
+        this.tasks.splice(index, 1);
+        this.saveTasks();
+
+        this.log(`Task deleted: ${task.description}`);
+        return `🗑️ Task deleted: "${task.description}"`;
     }
 
-    await this.saveTasks();
+    /**
+     * Update a task
+     */
+    updateTask(id, updates) {
+        const task = this.tasks.find(t => t.id === id);
 
-    return {
-      success: true,
-      message: 'Task deleted successfully'
-    };
-  }
+        if (!task) {
+            return `❌ Task not found: ${id}`;
+        }
 
-  /**
-   * Create a project
-   */
-  async createProject(projectData) {
-    const project = {
-      id: this.generateTaskId(),
-      name: projectData.name,
-      description: projectData.description || '',
-      status: projectData.status || 'active',
-      color: projectData.color || '#3b82f6',
-      created: new Date(),
-      modified: new Date()
-    };
+        if (updates.description) task.description = updates.description;
+        if (updates.priority) task.priority = updates.priority;
+        if (updates.deadline) task.deadline = updates.deadline;
+        if (updates.tags) task.tags = updates.tags;
 
-    this.projects.push(project);
-    await this.saveTasks();
+        this.saveTasks();
 
-    return {
-      success: true,
-      project,
-      message: 'Project created successfully'
-    };
-  }
-
-  /**
-   * Get tasks for a specific project
-   */
-  async getProjectTasks(projectId) {
-    const project = this.projects.find(p => p.id === projectId);
-    
-    if (!project) {
-      throw new Error('Project not found');
+        this.log(`Task updated: ${task.description}`);
+        return `✏️ Task updated: "${task.description}"`;
     }
 
-    const tasks = this.tasks.filter(t => t.projectId === projectId);
-    
-    const stats = {
-      total: tasks.length,
-      completed: tasks.filter(t => t.status === 'completed').length,
-      inProgress: tasks.filter(t => t.status === 'in_progress').length,
-      todo: tasks.filter(t => t.status === 'todo').length
-    };
+    /**
+     * Search tasks
+     */
+    searchTasks(query) {
+        const lowerQuery = query.toLowerCase();
+        const results = this.tasks.filter(task => 
+            task.description.toLowerCase().includes(lowerQuery) ||
+            task.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
+        );
 
-    return {
-      success: true,
-      project,
-      tasks,
-      stats
-    };
-  }
+        if (results.length === 0) {
+            return `No tasks found matching "${query}".`;
+        }
 
-  /**
-   * Get task statistics
-   */
-  getStats() {
-    const total = this.tasks.length;
-    const completed = this.tasks.filter(t => t.status === 'completed').length;
-    const overdue = this.tasks.filter(t => 
-      t.dueDate && t.dueDate < new Date() && t.status !== 'completed'
-    ).length;
-
-    return {
-      total,
-      completed,
-      overdue,
-      completionRate: total > 0 ? (completed / total * 100).toFixed(1) : 0,
-      projects: this.projects.length
-    };
-  }
-
-  /**
-   * Load tasks from storage
-   */
-  async loadTasks() {
-    const stored = localStorage.getItem('jarvis_tasks');
-    if (stored) {
-      const data = JSON.parse(stored);
-      this.tasks = data.tasks.map(t => ({
-        ...t,
-        dueDate: t.dueDate ? new Date(t.dueDate) : null,
-        created: new Date(t.created),
-        modified: new Date(t.modified),
-        completed: t.completed ? new Date(t.completed) : null
-      }));
-      this.projects = data.projects.map(p => ({
-        ...p,
-        created: new Date(p.created),
-        modified: new Date(p.modified)
-      }));
+        return this.formatTaskList(results);
     }
-  }
 
-  /**
-   * Save tasks to storage
-   */
-  async saveTasks() {
-    const data = {
-      tasks: this.tasks,
-      projects: this.projects
-    };
-    localStorage.setItem('jarvis_tasks', JSON.stringify(data));
-  }
+    /**
+     * Format task list for display
+     */
+    formatTaskList(tasks) {
+        const lines = ['Your tasks:\n'];
 
-  /**
-   * Generate unique task ID
-   */
-  generateTaskId() {
-    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
+        tasks.forEach(task => {
+            const statusIcon = task.status === 'completed' ? '✅' : '⏳';
+            const priorityIcon = this.getPriorityIcon(task.priority);
+            
+            lines.push(
+                `${statusIcon} ${priorityIcon} [${task.id}] ${task.description}`,
+                `   Priority: ${task.priority}`,
+                task.deadline ? `   Deadline: ${task.deadline}` : '',
+                task.tags.length > 0 ? `   Tags: ${task.tags.join(', ')}` : '',
+                ''
+            );
+        });
 
-  async shutdown() {
-    await this.saveTasks();
-    await super.shutdown();
-  }
+        return lines.join('\n');
+    }
+
+    /**
+     * Get priority icon
+     */
+    getPriorityIcon(priority) {
+        switch (priority) {
+            case 'high':
+                return '🔴';
+            case 'medium':
+                return '🟡';
+            case 'low':
+                return '🟢';
+            default:
+                return '⚪';
+        }
+    }
+
+    /**
+     * Get task statistics
+     */
+    getStatistics() {
+        const total = this.tasks.length;
+        const pending = this.tasks.filter(t => t.status === 'pending').length;
+        const completed = this.tasks.filter(t => t.status === 'completed').length;
+        const high = this.tasks.filter(t => t.priority === 'high' && t.status === 'pending').length;
+
+        return {
+            total,
+            pending,
+            completed,
+            highPriority: high,
+            completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
+        };
+    }
+
+    /**
+     * Get overdue tasks
+     */
+    getOverdueTasks() {
+        const now = new Date();
+        return this.tasks.filter(task => {
+            if (!task.deadline || task.status === 'completed') return false;
+            return new Date(task.deadline) < now;
+        });
+    }
+
+    /**
+     * Save tasks to storage
+     */
+    saveTasks() {
+        try {
+            localStorage.setItem('jarvis_tasks', JSON.stringify(this.tasks));
+            localStorage.setItem('jarvis_task_nextid', this.nextId.toString());
+        } catch (error) {
+            this.log('Failed to save tasks', 'error');
+        }
+    }
+
+    /**
+     * Load tasks from storage
+     */
+    loadTasks() {
+        try {
+            const saved = localStorage.getItem('jarvis_tasks');
+            if (saved) {
+                this.tasks = JSON.parse(saved);
+            }
+
+            const nextId = localStorage.getItem('jarvis_task_nextid');
+            if (nextId) {
+                this.nextId = parseInt(nextId);
+            }
+
+            this.log(`Loaded ${this.tasks.length} tasks`);
+        } catch (error) {
+            this.log('Failed to load tasks', 'error');
+        }
+    }
+
+    /**
+     * Clear all tasks
+     */
+    clearAll() {
+        this.tasks = [];
+        this.nextId = 1;
+        this.saveTasks();
+        this.log('All tasks cleared');
+        return 'All tasks have been cleared.';
+    }
 }
 
 export default TaskPlugin;
