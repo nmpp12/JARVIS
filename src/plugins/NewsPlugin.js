@@ -1,166 +1,255 @@
-import { BasePlugin } from './BasePlugin.js';
-
 /**
- * NewsPlugin - Provides news aggregation and search
- * Can integrate with NewsAPI, RSS feeds, or other news sources
+ * News Plugin
+ * Provides news headlines and updates
  */
+
+import BasePlugin from './BasePlugin.js';
+
 export class NewsPlugin extends BasePlugin {
-  constructor() {
-    super();
-    this.name = 'news';
-    this.version = '1.0.0';
-    this.description = 'Provides news articles and updates from various sources';
-    this.capabilities = ['news', 'headlines', 'search_news'];
-    this.apiKey = '';
-    this.apiUrl = 'https://newsapi.org/v2';
-    this.categories = ['business', 'entertainment', 'general', 'health', 'science', 'sports', 'technology'];
-  }
-
-  async initialize() {
-    await super.initialize();
-    this.apiKey = this.config.apiKey || process.env.NEWS_API_KEY || '';
-    if (!this.apiKey) {
-      console.warn('[NewsPlugin] No API key configured. Using demo mode.');
-    }
-  }
-
-  async handleRequest(request) {
-    const { action, data } = request;
-
-    try {
-      switch (action) {
-        case 'top_headlines':
-          return await this.getTopHeadlines(data.category, data.country);
-        case 'search':
-          return await this.searchNews(data.query, data.from, data.to);
-        case 'by_source':
-          return await this.getNewsBySource(data.source);
-        default:
-          throw new Error(`Unknown action: ${action}`);
-      }
-    } catch (error) {
-      return this.handleError(error);
-    }
-  }
-
-  /**
-   * Get top headlines
-   */
-  async getTopHeadlines(category = 'general', country = 'us') {
-    if (!this.apiKey) {
-      return this.getDemoHeadlines(category);
+    constructor() {
+        super('news', 'Provides news headlines and updates');
+        this.apiKey = null; // Would be set from config
+        this.categories = ['general', 'technology', 'business', 'science', 'health', 'sports', 'entertainment'];
+        this.preferredCategory = 'general';
+        this.country = 'us';
     }
 
-    const url = `${this.apiUrl}/top-headlines?category=${category}&country=${country}&apiKey=${this.apiKey}`;
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`News API error: ${response.statusText}`);
+    async initialize() {
+        await super.initialize();
+        this.log('News plugin ready');
+        return true;
     }
 
-    const data = await response.json();
-    return this.formatNewsResponse(data);
-  }
-
-  /**
-   * Search news articles
-   */
-  async searchNews(query, from = null, to = null) {
-    if (!this.apiKey) {
-      return this.getDemoSearch(query);
+    /**
+     * Validate parameters
+     */
+    validate(params) {
+        return true; // News requests are always valid
     }
 
-    let url = `${this.apiUrl}/everything?q=${encodeURIComponent(query)}&apiKey=${this.apiKey}&sortBy=publishedAt`;
-    if (from) url += `&from=${from}`;
-    if (to) url += `&to=${to}`;
+    /**
+     * Execute news query
+     */
+    async execute(params) {
+        try {
+            const action = params.action || 'headlines';
 
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`News API error: ${response.statusText}`);
+            switch (action) {
+                case 'headlines':
+                    return await this.getHeadlines(params.category);
+                case 'search':
+                    return await this.searchNews(params.query);
+                case 'category':
+                    return await this.getByCategory(params.category);
+                case 'trending':
+                    return await this.getTrending();
+                default:
+                    return await this.getHeadlines();
+            }
+        } catch (error) {
+            return this.handleError(error, 'executing news query');
+        }
     }
 
-    const data = await response.json();
-    return this.formatNewsResponse(data);
-  }
-
-  /**
-   * Get news from specific source
-   */
-  async getNewsBySource(source) {
-    if (!this.apiKey) {
-      return this.getDemoHeadlines('general');
+    /**
+     * Get top headlines
+     */
+    async getHeadlines(category = null) {
+        try {
+            // Mock data - would call real news API in production
+            const headlines = this.generateMockHeadlines(category);
+            return this.formatHeadlines(headlines);
+        } catch (error) {
+            throw new Error(`Failed to get headlines: ${error.message}`);
+        }
     }
 
-    const url = `${this.apiUrl}/top-headlines?sources=${source}&apiKey=${this.apiKey}`;
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`News API error: ${response.statusText}`);
+    /**
+     * Search news by query
+     */
+    async searchNews(query) {
+        if (!query) {
+            return '❌ Please provide a search query.';
+        }
+
+        try {
+            // Mock search results
+            const results = this.generateMockSearchResults(query);
+            return this.formatSearchResults(query, results);
+        } catch (error) {
+            throw new Error(`Failed to search news: ${error.message}`);
+        }
     }
 
-    const data = await response.json();
-    return this.formatNewsResponse(data);
-  }
+    /**
+     * Get news by category
+     */
+    async getByCategory(category) {
+        if (!this.categories.includes(category)) {
+            return `❌ Invalid category. Available: ${this.categories.join(', ')}`;
+        }
 
-  /**
-   * Format news API response
-   */
-  formatNewsResponse(data) {
-    return {
-      success: true,
-      totalResults: data.totalResults,
-      articles: data.articles.map(article => ({
-        title: article.title,
-        description: article.description,
-        url: article.url,
-        source: article.source.name,
-        author: article.author,
-        publishedAt: new Date(article.publishedAt),
-        image: article.urlToImage,
-        content: article.content
-      })).slice(0, 10) // Limit to 10 articles
-    };
-  }
+        return await this.getHeadlines(category);
+    }
 
-  /**
-   * Demo mode - return sample data
-   */
-  getDemoHeadlines(category) {
-    const sampleArticles = [
-      {
-        title: `Sample ${category} headline 1`,
-        description: 'This is a sample news article description.',
-        url: 'https://example.com/article1',
-        source: 'Demo News',
-        author: 'Demo Author',
-        publishedAt: new Date(),
-        image: null,
-        content: 'Sample article content...'
-      },
-      {
-        title: `Sample ${category} headline 2`,
-        description: 'Another sample news article description.',
-        url: 'https://example.com/article2',
-        source: 'Demo News',
-        author: 'Demo Author',
-        publishedAt: new Date(Date.now() - 3600000),
-        image: null,
-        content: 'More sample content...'
-      }
-    ];
+    /**
+     * Get trending news
+     */
+    async getTrending() {
+        const trending = this.generateMockTrending();
+        return this.formatTrending(trending);
+    }
 
-    return {
-      success: true,
-      totalResults: 2,
-      articles: sampleArticles,
-      demoMode: true
-    };
-  }
+    /**
+     * Generate mock headlines
+     */
+    generateMockHeadlines(category = 'general') {
+        const headlines = {
+            general: [
+                { title: 'Global Summit Discusses Climate Action', source: 'World News', time: '2 hours ago' },
+                { title: 'Economic Growth Surpasses Expectations', source: 'Financial Times', time: '3 hours ago' },
+                { title: 'Major Breakthrough in Medical Research', source: 'Health Today', time: '5 hours ago' }
+            ],
+            technology: [
+                { title: 'New AI Model Achieves Human-Level Performance', source: 'Tech Daily', time: '1 hour ago' },
+                { title: 'Revolutionary Battery Technology Announced', source: 'Innovation News', time: '4 hours ago' },
+                { title: 'Quantum Computing Milestone Reached', source: 'Science Tech', time: '6 hours ago' }
+            ],
+            business: [
+                { title: 'Markets React to Economic Data', source: 'Business Wire', time: '30 minutes ago' },
+                { title: 'Tech Giants Announce Merger Plans', source: 'Corporate News', time: '2 hours ago' },
+                { title: 'Startup Raises Record Funding', source: 'Venture Beat', time: '4 hours ago' }
+            ]
+        };
 
-  getDemoSearch(query) {
-    return this.getDemoHeadlines('general');
-  }
+        return headlines[category] || headlines.general;
+    }
+
+    /**
+     * Generate mock search results
+     */
+    generateMockSearchResults(query) {
+        return [
+            {
+                title: `Breaking: ${query} Makes Headlines`,
+                source: 'News Network',
+                description: `Latest updates on ${query} and related developments.`,
+                time: '1 hour ago'
+            },
+            {
+                title: `Analysis: Understanding ${query}`,
+                source: 'Analysis Daily',
+                description: `In-depth look at ${query} and its implications.`,
+                time: '3 hours ago'
+            },
+            {
+                title: `Expert Opinion on ${query}`,
+                source: 'Expert Views',
+                description: `Industry experts weigh in on ${query}.`,
+                time: '5 hours ago'
+            }
+        ];
+    }
+
+    /**
+     * Generate mock trending topics
+     */
+    generateMockTrending() {
+        return [
+            { topic: 'Technology Innovation', mentions: 15420 },
+            { topic: 'Global Markets', mentions: 12350 },
+            { topic: 'Climate Action', mentions: 10890 },
+            { topic: 'AI Development', mentions: 9540 },
+            { topic: 'Space Exploration', mentions: 8320 }
+        ];
+    }
+
+    /**
+     * Format headlines for display
+     */
+    formatHeadlines(headlines) {
+        const lines = ['📰 Top Headlines:\n'];
+
+        headlines.forEach((item, index) => {
+            lines.push(
+                `${index + 1}. ${item.title}`,
+                `   📰 ${item.source} • ${item.time}`,
+                ''
+            );
+        });
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Format search results
+     */
+    formatSearchResults(query, results) {
+        const lines = [`🔍 Search results for "${query}":\n`];
+
+        results.forEach((item, index) => {
+            lines.push(
+                `${index + 1}. ${item.title}`,
+                `   ${item.description}`,
+                `   📰 ${item.source} • ${item.time}`,
+                ''
+            );
+        });
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Format trending topics
+     */
+    formatTrending(trending) {
+        const lines = ['🔥 Trending Now:\n'];
+
+        trending.forEach((item, index) => {
+            lines.push(
+                `${index + 1}. ${item.topic}`,
+                `   💬 ${item.mentions.toLocaleString()} mentions`,
+                ''
+            );
+        });
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Set preferred category
+     */
+    setPreferredCategory(category) {
+        if (this.categories.includes(category)) {
+            this.preferredCategory = category;
+            this.log(`Preferred category set to: ${category}`);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Set country
+     */
+    setCountry(country) {
+        this.country = country;
+        this.log(`Country set to: ${country}`);
+    }
+
+    /**
+     * Set API key
+     */
+    setApiKey(apiKey) {
+        this.apiKey = apiKey;
+        this.log('News API key configured');
+    }
+
+    /**
+     * Get available categories
+     */
+    getCategories() {
+        return this.categories;
+    }
 }
 
 export default NewsPlugin;
