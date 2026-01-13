@@ -1,0 +1,181 @@
+# User Query Processing Flow (FrogProG)
+# Version: 1.0
+# Author: JARVIS Team
+# Description: Complete user query processing sequence
+
+START UserQueryFlow
+
+# Actors
+ACTOR "User" as USER
+ACTOR "ChatUI" as CHATUI
+ACTOR "JarvisCore" as CORE
+ACTOR "Memory" as MEMORY
+ACTOR "Personality" as PERSONALITY
+ACTOR "Proxy" as PROXY
+ACTOR "Ollama" as OLLAMA
+ACTOR "Learning" as LEARNING
+
+# Main Flow
+SEQUENCE {
+  
+  # Step 1: User Input
+  USER -> CHATUI: "Types message" {
+    TIMING: "Instant"
+  }
+  
+  CHATUI -> CHATUI: "Display user message" {
+    ACTION: "Show in chat window"
+    TIMING: "Instant"
+  }
+  
+  CHATUI -> CORE: "processQuery(message)" {
+    TIMING: "<10ms"
+  }
+  
+  # Step 2: Context Retrieval
+  CORE -> MEMORY: "storeInteraction(query)" {
+    TIMING: "10-50ms"
+  }
+  
+  MEMORY -> CORE: "context retrieved" {
+    DATA: {
+      recent: "Last 5 interactions",
+      relevant: "Related memories",
+      entities: "Known entities"
+    }
+  }
+  
+  # Step 3: Personality Application
+  CORE -> PERSONALITY: "applyPersonality(query)" {
+    TIMING: "5-20ms"
+  }
+  
+  PERSONALITY -> CORE: "styled query" {
+    TRAITS: ["mood", "style", "tone"]
+  }
+  
+  # Step 4: AI Communication
+  CORE -> PROXY: "POST /api/generate" {
+    NOTE: "Add CORS headers"
+    TIMING: "50-100ms"
+  }
+  
+  PROXY -> OLLAMA: "Forward request" {
+    MODEL: "llama3"
+  }
+  
+  # Step 5: AI Generation
+  OLLAMA -> OLLAMA: "Generate response" {
+    NOTE: "Using llama3 model"
+    TIMING: "1-5 seconds"
+  }
+  
+  # Step 6: Response Return
+  OLLAMA -> PROXY: "AI response" {
+    FORMAT: "JSON"
+  }
+  
+  PROXY -> CORE: "Response with CORS" {
+    TIMING: "50-100ms"
+  }
+  
+  # Step 7: Response Processing
+  CORE -> PERSONALITY: "applyPersonality(response)" {
+    TIMING: "5-20ms"
+  }
+  
+  PERSONALITY -> CORE: "styled response" {
+    ENHANCED: true
+  }
+  
+  # Step 8: Memory & Learning
+  CORE -> MEMORY: "storeInteraction(response)" {
+    TIMING: "10-30ms"
+  }
+  
+  CORE -> LEARNING: "recordInteraction(query, response)" {
+    PURPOSE: "Improve future responses"
+  }
+  
+  # Step 9: Display
+  CORE -> CHATUI: "Final response" {
+    TIMING: "Instant"
+  }
+  
+  CHATUI -> CHATUI: "Display assistant message" {
+    FORMAT: "Markdown"
+  }
+  
+  CHATUI -> USER: "Show response" {
+    TIMING: "Instant"
+  }
+  
+  # Optional: Voice Output
+  OPTIONAL {
+    IF "Voice enabled" THEN {
+      CHATUI -> VOICE: "speak(response)"
+      VOICE -> USER: "Audio output"
+    }
+  }
+}
+
+END UserQueryFlow
+
+# Timing Summary
+TIMING_SUMMARY {
+  "User Input": "Instant",
+  "Context Retrieval": "10-50ms",
+  "Proxy Communication": "50-100ms",
+  "AI Generation": "1-5 seconds",
+  "Response Display": "Instant",
+  "Total": "1.5-6 seconds"
+}
+
+# Flow Steps Explained
+NOTE "Step 1: User Input" {
+  - User types in input field
+  - ChatUI validates message
+  - Auto-resize textarea
+}
+
+NOTE "Step 2: Context Retrieval" {
+  - Check short-term memory
+  - Retrieve long-term memories
+  - Load user preferences
+}
+
+NOTE "Step 3: Personality" {
+  - Apply current mood
+  - Use response style
+  - Add personality touches
+}
+
+NOTE "Step 4: AI Communication" {
+  - Format request for Ollama
+  - Proxy adds CORS headers
+  - Forward with context
+}
+
+NOTE "Step 5: AI Generation" {
+  - Process with llama3
+  - Generate contextual response
+  - Return formatted output
+}
+
+NOTE "Step 6: Response Processing" {
+  - Apply personality styling
+  - Store in memory
+  - Return to UI
+}
+
+NOTE "Step 7: Learning" {
+  - Record interaction
+  - Analyze patterns
+  - Update knowledge base
+}
+
+NOTE "Step 8: Display" {
+  - Format for display
+  - Show in chat
+  - Optional voice output
+}

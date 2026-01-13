@@ -1,0 +1,332 @@
+# Automation System Flow (FrogProG)
+# Version: 1.0
+# Author: JARVIS Team
+# Description: Automation workflows and scheduling
+
+START AutomationSystemFlow
+
+# Automation Types
+BOX "Automation Types" {
+  TYPE "Routines" {
+    DESCRIPTION: "Recurring scheduled actions"
+    SCHEDULE: ["daily", "weekly", "monthly"]
+    EXAMPLE: "Morning briefing at 9am daily"
+  }
+  
+  TYPE "Workflows" {
+    DESCRIPTION: "Sequential steps"
+    TRIGGER: ["manual", "event", "condition"]
+    EXAMPLE: "Project setup workflow"
+  }
+  
+  TYPE "Scheduled Actions" {
+    DESCRIPTION: "One-time scheduled actions"
+    TRIGGER: "specific datetime"
+    EXAMPLE: "Meeting reminder at 2:45pm"
+  }
+  
+  TYPE "Triggers" {
+    DESCRIPTION: "Conditional execution"
+    TRIGGER: "condition met"
+    EXAMPLE: "Low battery alert when < 20%"
+  }
+}
+
+# Scheduler Main Loop
+LOOP "Scheduler" [COLOR=CYAN] {
+  
+  START: "Scheduler Starts"
+  
+  REPEAT {
+    
+    STEP "Check Time" {
+      CURRENT: "new Date()"
+    }
+    
+    # Check all automation types in parallel
+    PARALLEL {
+      
+      # Routines
+      CHECK "Routine Due?" {
+        IF "Yes" THEN {
+          EXECUTE "Routine" {
+            RUN "Actions in sequence"
+            CALCULATE "Next Run Time"
+          }
+        }
+      }
+      
+      # Workflows
+      CHECK "Trigger Fired?" {
+        IF "Yes" THEN {
+          EXECUTE "Workflow" {
+            RUN "Steps in sequence"
+            COLLECT "Results"
+            HANDLE "Errors"
+          }
+        }
+      }
+      
+      # Scheduled Actions
+      CHECK "Action Due?" {
+        IF "Yes" THEN {
+          EXECUTE "Scheduled Action" {
+            RUN "Single action"
+            MARK "Complete"
+            REMOVE "From schedule"
+          }
+        }
+      }
+      
+      # Triggers
+      CHECK "Condition Met?" {
+        IF "Yes" THEN {
+          FIRE "Trigger" {
+            EXECUTE "Action"
+            LOG "Event"
+          }
+        }
+      }
+    }
+    
+    WAIT "1 minute"
+  }
+}
+
+END AutomationSystemFlow
+
+# Routine Structure
+STRUCTURE "Routine" {
+  SCHEMA: """
+  {
+    id: number,
+    name: string,
+    description: string,
+    schedule: 'daily' | 'weekly' | 'monthly',
+    time: string,  // HH:MM format
+    dayOfWeek?: number,  // 0-6 for weekly
+    dayOfMonth?: number,  // 1-31 for monthly
+    actions: Action[],
+    enabled: boolean,
+    lastRun?: Date,
+    nextRun?: Date
+  }
+  """
+  
+  EXAMPLE: """
+  {
+    id: 1,
+    name: "Morning Briefing",
+    description: "Daily morning updates",
+    schedule: "daily",
+    time: "09:00",
+    actions: [
+      { type: "speak", params: { text: "Good morning" } },
+      { type: "weather", params: { location: "Lisbon" } },
+      { type: "task", params: { list: "today" } }
+    ],
+    enabled: true
+  }
+  """
+}
+
+# Workflow Structure
+STRUCTURE "Workflow" {
+  SCHEMA: """
+  {
+    id: number,
+    name: string,
+    description: string,
+    trigger: 'manual' | 'event' | 'condition',
+    steps: Step[],
+    enabled: boolean
+  }
+  """
+  
+  STEP_SCHEMA: """
+  {
+    type: string,
+    params: object,
+    critical: boolean,  // Stop on error if true
+    timeout?: number
+  }
+  """
+  
+  EXAMPLE: """
+  {
+    id: 2,
+    name: "Project Setup",
+    trigger: "manual",
+    steps: [
+      { 
+        type: "task",
+        params: { action: "create", title: "Initialize repo" },
+        critical: true
+      },
+      {
+        type: "task",
+        params: { action: "create", title: "Setup CI/CD" },
+        critical: false
+      },
+      {
+        type: "notification",
+        params: { message: "Project setup complete" }
+      }
+    ]
+  }
+  """
+}
+
+# Routine Execution Flow
+SEQUENCE "Routine Execution" [COLOR=BLUE] {
+  
+  ACTOR "Scheduler"
+  ACTOR "Routine"
+  ACTOR "Actions"
+  ACTOR "Plugins"
+  
+  Scheduler -> Routine: "Check if due"
+  Routine -> Routine: "Check enabled?"
+  Routine -> Routine: "Check time match?"
+  
+  DECISION "Routine is due?" {
+    IF "Yes" THEN {
+      Routine -> Actions: "Execute action 1"
+      Actions -> Plugins: "Call plugin method"
+      Plugins -> Actions: "Result"
+      
+      Routine -> Actions: "Execute action 2"
+      Actions -> Plugins: "Call plugin method"
+      Plugins -> Actions: "Result"
+      
+      Routine -> Actions: "Execute action 3"
+      Actions -> Plugins: "Call plugin method"
+      Plugins -> Actions: "Result"
+      
+      Routine -> Routine: "Update lastRun"
+      Routine -> Routine: "Calculate nextRun"
+    }
+    ELSE {
+      Routine -> Scheduler: "Skip"
+    }
+  }
+}
+
+# Workflow Execution States
+STATE_MACHINE "Workflow" [COLOR=RED] {
+  
+  STATE "Idle" as INITIAL
+  STATE "Triggered"
+  STATE "Executing Step"
+  STATE "Checking Result"
+  STATE "Complete" as FINAL
+  STATE "Failed" as ERROR
+  
+  INITIAL -> "Triggered": "Execute workflow"
+  
+  "Triggered" -> "Executing Step": "Start first step"
+  
+  "Executing Step" -> "Checking Result": "Step finished"
+  
+  "Checking Result" -> "Executing Step": "Success, more steps"
+  "Checking Result" -> "Complete": "Success, no more steps"
+  "Checking Result" -> "Failed": "Failure (if critical)"
+  "Checking Result" -> "Executing Step": "Failure (if not critical)"
+}
+
+# Action Types
+ACTION_TYPES {
+  
+  "notification": {
+    description: "Show system notification",
+    params: { message: "string", title?: "string" },
+    example: "{ type: 'notification', params: { message: 'Hello' } }"
+  },
+  
+  "speak": {
+    description: "Text-to-speech",
+    params: { text: "string", voice?: "string" },
+    example: "{ type: 'speak', params: { text: 'Good morning' } }"
+  },
+  
+  "reminder": {
+    description: "Create reminder",
+    params: { message: "string", time: "string" },
+    example: "{ type: 'reminder', params: { message: 'Call John', time: '15:00' } }"
+  },
+  
+  "task": {
+    description: "Create/manage task",
+    params: { action: "string", title: "string" },
+    example: "{ type: 'task', params: { action: 'create', title: 'New task' } }"
+  },
+  
+  "weather": {
+    description: "Check weather",
+    params: { location: "string" },
+    example: "{ type: 'weather', params: { location: 'Lisbon' } }"
+  },
+  
+  "custom": {
+    description: "Custom handler function",
+    params: { handler: "function" },
+    example: "{ type: 'custom', handler: async (params) => {...} }"
+  }
+}
+
+# Schedule Calculation
+ALGORITHM "Calculate Next Run" {
+  
+  FUNCTION "calculateNextRun" {
+    INPUT: { schedule: "string", time: "string" }
+    
+    IF schedule == "daily" THEN {
+      CODE: """
+      const [hours, minutes] = time.split(':');
+      let next = new Date();
+      next.setHours(hours, minutes, 0, 0);
+      
+      if (next <= new Date()) {
+        next.setDate(next.getDate() + 1);
+      }
+      
+      return next;
+      """
+    }
+    
+    IF schedule == "weekly" THEN {
+      CODE: """
+      let next = calculateNextRun('daily', time);
+      
+      while (next.getDay() !== dayOfWeek) {
+        next.setDate(next.getDate() + 1);
+      }
+      
+      return next;
+      """
+    }
+  }
+}
+
+# Error Handling
+ERROR_HANDLING [COLOR=ORANGE] {
+  
+  TRY "Execute Action" {
+    
+    ON "Success" -> "Log Success" [COLOR=GREEN]
+    
+    ON "Error" -> CHECK "Critical?" {
+      IF "Yes" -> "Stop Workflow" [COLOR=RED] -> "Report Error"
+      ELSE "No" -> "Continue" [COLOR=YELLOW] -> "Next Action"
+    }
+  }
+}
+
+# Statistics
+STATS {
+  "Scheduler Interval": "1 minute",
+  "Max Concurrent Actions": "10",
+  "Action Timeout": "30 seconds",
+  "Retry Attempts": "3",
+  "Error Cooldown": "5 minutes"
+}

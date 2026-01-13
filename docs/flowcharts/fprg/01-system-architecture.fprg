@@ -1,0 +1,178 @@
+# JARVIS System Architecture Flowchart (FrogProG)
+# Version: 1.0
+# Author: JARVIS Team
+# Description: Complete system architecture visualization
+
+START SystemArchitecture
+
+# Layer 1: User Interface
+BOX "User Interface Layer" {
+  COMPONENT "Desktop UI" as UI
+  COMPONENT "Styles & CSS" as CSS
+  COMPONENT "JavaScript App" as JS
+}
+
+# Layer 2: Application
+BOX "Application Layer" {
+  COMPONENT "JarvisApp" as APP
+  COMPONENT "ChatUI" as CHAT
+  COMPONENT "TasksUI" as TASKS
+  COMPONENT "CalendarUI" as CAL
+  COMPONENT "CodeUI" as CODE
+  COMPONENT "AutomationsUI" as AUTO
+  COMPONENT "MemoryUI" as MEM
+  COMPONENT "SettingsUI" as SET
+}
+
+# Layer 3: Core
+BOX "Core Layer" {
+  COMPONENT "JarvisCore" as CORE [COLOR=RED]
+  COMPONENT "PluginManager" as PM
+  COMPONENT "EventBus" as EB
+  COMPONENT "ConfigManager" as CM
+}
+
+# Layer 4: Skills
+BOX "Skills Layer" {
+  COMPONENT "VoiceSkill" as VOICE
+  COMPONENT "LearningSkill" as LEARN
+  COMPONENT "MemorySkill" as MEMORY
+  COMPONENT "PersonalitySkill" as PERSON
+  COMPONENT "AutomationSkill" as AUTOMATION
+}
+
+# Layer 5: Plugins
+BOX "Plugins Layer" {
+  COMPONENT "TaskPlugin" as TASK
+  COMPONENT "CalendarPlugin" as CALENDAR
+  COMPONENT "WeatherPlugin" as WEATHER
+  COMPONENT "SearchPlugin" as SEARCH
+  COMPONENT "FilePlugin" as FILE
+  COMPONENT "ReminderPlugin" as REMINDER
+  COMPONENT "NewsPlugin" as NEWS
+  COMPONENT "TranslationPlugin" as TRANS
+  COMPONENT "MusicPlugin" as MUSIC
+}
+
+# Layer 6: External Services
+BOX "External Services" {
+  COMPONENT "Proxy Server :3000" as PROXY
+  COMPONENT "Ollama AI :11434" as OLLAMA [COLOR=CYAN]
+  COMPONENT "External APIs" as APIS
+}
+
+# Layer 7: Storage
+BOX "Storage" {
+  COMPONENT "LocalStorage" as LS
+  COMPONENT "FileSystem" as FS
+}
+
+# Connections: UI Layer
+UI --> APP
+CSS --> UI
+JS --> APP
+
+# Connections: Application Layer
+APP --> CHAT
+APP --> TASKS
+APP --> CAL
+APP --> CODE
+APP --> AUTO
+APP --> MEM
+APP --> SET
+
+# Connections: App to Core
+CHAT --> CORE
+TASKS --> CORE
+CAL --> CORE
+CODE --> CORE
+AUTO --> CORE
+MEM --> CORE
+SET --> CORE
+
+# Connections: Core Components
+CORE --> PM
+CORE --> EB
+CORE --> CM
+
+# Connections: Core to Skills
+CORE --> VOICE
+CORE --> LEARN
+CORE --> MEMORY
+CORE --> PERSON
+CORE --> AUTOMATION
+
+# Connections: PluginManager to Plugins
+PM --> TASK
+PM --> CALENDAR
+PM --> WEATHER
+PM --> SEARCH
+PM --> FILE
+PM --> REMINDER
+PM --> NEWS
+PM --> TRANS
+PM --> MUSIC
+
+# Connections: Core to Services
+CORE --> PROXY
+PROXY --> OLLAMA
+
+# Connections: Plugins to APIs
+TASK --> APIS
+WEATHER --> APIS
+SEARCH --> APIS
+NEWS --> APIS
+TRANS --> APIS
+MUSIC --> APIS
+
+# Connections: Storage
+MEMORY --> LS
+LEARN --> LS
+CM --> LS
+FILE --> FS
+
+END SystemArchitecture
+
+# Layer Descriptions
+NOTE "Layer 1: User Interface" {
+  - Modern web interface with sidebar
+  - CSS with theme variables
+  - JavaScript application controller
+}
+
+NOTE "Layer 2: Application" {
+  - JarvisApp: Central application manager
+  - Modular UI components for features
+}
+
+NOTE "Layer 3: Core" {
+  - JarvisCore: Central brain
+  - PluginManager: Dynamic plugin loading
+  - EventBus: Pub/sub event system
+  - ConfigManager: Centralized config
+}
+
+NOTE "Layer 4: Skills" {
+  - Voice: Speech recognition & TTS
+  - Learning: Adaptive learning
+  - Memory: Short/long-term memory
+  - Personality: Traits and mood
+  - Automation: Routines and workflows
+}
+
+NOTE "Layer 5: Plugins" {
+  - 9 modular feature extensions
+  - Independently loadable
+  - Event-based communication
+}
+
+NOTE "Layer 6: External Services" {
+  - Proxy: CORS-enabled bridge
+  - Ollama: Local AI model runner
+  - APIs: External integrations
+}
+
+NOTE "Layer 7: Storage" {
+  - LocalStorage: Browser persistence
+  - FileSystem: File operations
+}

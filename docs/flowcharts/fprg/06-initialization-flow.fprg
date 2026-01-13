@@ -1,0 +1,334 @@
+# JARVIS Initialization Flow (FrogProG)
+# Version: 1.0
+# Author: JARVIS Team
+# Description: Complete system startup sequence
+
+START InitializationFlow
+
+# Actors
+ACTOR "Browser" as BROWSER
+ACTOR "HTML" as HTML
+ACTOR "App" as APP
+ACTOR "Core" as CORE
+ACTOR "Config" as CONFIG
+ACTOR "Plugins" as PLUGINS
+ACTOR "Skills" as SKILLS
+ACTOR "UI" as UI
+ACTOR "Proxy" as PROXY
+ACTOR "Ollama" as OLLAMA
+
+# Initialization Sequence
+SEQUENCE "System Startup" {
+  
+  # Phase 1: Bootstrap (0-500ms)
+  PHASE "Bootstrap" [COLOR=CYAN] {
+    TIMING: "0-500ms"
+    
+    BROWSER -> HTML: "Load index.html"
+    HTML -> HTML: "Parse HTML"
+    HTML -> HTML: "Load CSS"
+    HTML -> APP: "Load app.js"
+    
+    APP -> APP: "Create JarvisApp instance"
+    APP -> APP: "Show loading overlay"
+  }
+  
+  # Phase 2: Core Initialization (500-1500ms)
+  PHASE "Core Initialization" [COLOR=BLUE] {
+    TIMING: "500-1500ms"
+    
+    APP -> CORE: "new JarvisCore()"
+    
+    CORE -> CONFIG: "Load ConfigManager"
+    CONFIG -> CONFIG: "Load default config"
+    CONFIG -> CONFIG: "Load user overrides"
+    CONFIG -> CORE: "Config ready"
+  }
+  
+  # Phase 3: Plugin Initialization (1500-2500ms)
+  PHASE "Plugin Initialization" [COLOR=PURPLE] {
+    TIMING: "1500-2500ms"
+    
+    CORE -> PLUGINS: "Initialize PluginManager"
+    PLUGINS -> PLUGINS: "Discover plugins (9)"
+    
+    LOOP "For each plugin" {
+      PLUGINS -> PLUGINS: "Validate plugin"
+      PLUGINS -> PLUGINS: "Register plugin"
+      PLUGINS -> PLUGINS: "Initialize plugin"
+    }
+    
+    PLUGINS -> CORE: "9 plugins ready"
+  }
+  
+  # Phase 4: Skills Initialization (2500-3500ms)
+  PHASE "Skills Initialization" [COLOR=ORANGE] {
+    TIMING: "2500-3500ms"
+    
+    # Voice Skill
+    CORE -> SKILLS: "Initialize VoiceSkill"
+    SKILLS -> SKILLS: "Load speech synthesis"
+    SKILLS -> SKILLS: "Load speech recognition"
+    SKILLS -> CORE: "Voice ready"
+    
+    # Learning Skill
+    CORE -> SKILLS: "Initialize LearningSkill"
+    SKILLS -> SKILLS: "Load learning data"
+    SKILLS -> CORE: "Learning ready"
+    
+    # Memory Skill
+    CORE -> SKILLS: "Initialize MemorySkill"
+    SKILLS -> SKILLS: "Load memories"
+    SKILLS -> CORE: "Memory ready"
+    
+    # Personality Skill
+    CORE -> SKILLS: "Initialize PersonalitySkill"
+    SKILLS -> SKILLS: "Load personality"
+    SKILLS -> CORE: "Personality ready"
+    
+    # Automation Skill
+    CORE -> SKILLS: "Initialize AutomationSkill"
+    SKILLS -> SKILLS: "Load automations"
+    SKILLS -> SKILLS: "Start scheduler"
+    SKILLS -> CORE: "Automation ready"
+  }
+  
+  # Phase 5: UI Initialization (3500-4000ms)
+  PHASE "UI Initialization" [COLOR=GREEN] {
+    TIMING: "3500-4000ms"
+    
+    CORE -> APP: "Core initialized"
+    
+    APP -> UI: "Initialize UI components"
+    UI -> UI: "Initialize ChatUI"
+    UI -> UI: "Initialize TasksUI"
+    UI -> UI: "Initialize CalendarUI"
+    UI -> UI: "Initialize CodeUI"
+    UI -> UI: "Initialize AutomationsUI"
+    UI -> UI: "Initialize MemoryUI"
+    UI -> UI: "Initialize SettingsUI"
+    UI -> APP: "UI ready"
+    
+    APP -> APP: "Setup event listeners"
+    APP -> APP: "Setup keyboard shortcuts"
+  }
+  
+  # Phase 6: External Services Check (4000-5000ms)
+  PHASE "Services Check" [COLOR=YELLOW] {
+    TIMING: "4000-5000ms"
+    
+    APP -> PROXY: "Check proxy server"
+    PROXY -> PROXY: "Health check"
+    PROXY -> APP: "Proxy OK"
+    
+    APP -> OLLAMA: "Check Ollama via proxy"
+    OLLAMA -> OLLAMA: "Check models"
+    OLLAMA -> APP: "Ollama OK"
+  }
+  
+  # Phase 7: Ready (5000ms)
+  PHASE "Ready" [COLOR=GREEN] {
+    TIMING: "5000ms"
+    
+    APP -> APP: "Hide loading overlay"
+    APP -> UI: "Show welcome message"
+    UI -> BROWSER: "Display interface"
+    
+    NOTE: "JARVIS is ready!"
+  }
+}
+
+END InitializationFlow
+
+# Phase Details
+PHASE_DETAILS {
+  
+  PHASE "1. Bootstrap" {
+    DURATION: "0-500ms"
+    STEPS: [
+      "Browser loads HTML",
+      "Parse and render structure",
+      "Load CSS files",
+      "Load JavaScript modules",
+      "Create JarvisApp instance"
+    ]
+  }
+  
+  PHASE "2. Core Initialization" {
+    DURATION: "500-1500ms"
+    STEPS: [
+      "Create JarvisCore",
+      "Load ConfigManager",
+      "Load default configuration",
+      "Load user overrides from localStorage",
+      "Initialize EventBus",
+      "Setup error handlers"
+    ]
+  }
+  
+  PHASE "3. Plugin Initialization" {
+    DURATION: "1500-2500ms"
+    STEPS: [
+      "Discover all plugins",
+      "Validate plugin interface",
+      "Create plugin instances",
+      "Register with manager",
+      "Call initialize() for each",
+      "Subscribe to events",
+      "Verify all plugins loaded"
+    ]
+  }
+  
+  PHASE "4. Skills Initialization" {
+    DURATION: "2500-3500ms"
+    SKILLS: [
+      "VoiceSkill: Speech synthesis & recognition",
+      "LearningSkill: Load learning data",
+      "MemorySkill: Load STM, LTM, entities",
+      "PersonalitySkill: Load traits and mood",
+      "AutomationSkill: Load routines & start scheduler"
+    ]
+  }
+  
+  PHASE "5. UI Initialization" {
+    DURATION: "3500-4000ms"
+    STEPS: [
+      "Initialize all UI components",
+      "Setup DOM references",
+      "Attach event listeners",
+      "Load initial data",
+      "Setup keyboard shortcuts"
+    ]
+  }
+  
+  PHASE "6. External Services Check" {
+    DURATION: "4000-5000ms"
+    STEPS: [
+      "Check proxy server availability",
+      "Check Ollama service",
+      "Verify model availability",
+      "Test connection"
+    ]
+  }
+  
+  PHASE "7. Ready" {
+    DURATION: "5000ms"
+    STEPS: [
+      "Hide loading overlay",
+      "Show welcome message",
+      "Display interface",
+      "Ready for user input"
+    ]
+  }
+}
+
+# Error Handling Flow
+ERROR_HANDLING {
+  
+  DECISION "Error Occurred?" {
+    
+    CHECK "Critical Error?" {
+      
+      IF "Yes" THEN {
+        ERRORS: [
+          "Core system fails to load",
+          "ConfigManager fails",
+          "EventBus fails",
+          "All plugins fail to load",
+          "Fatal JavaScript errors"
+        ]
+        
+        ACTION "Show Fatal Error" [COLOR=RED] {
+          MESSAGE: "Unable to start JARVIS"
+          OPTIONS: ["Reload", "Report"]
+        }
+        
+        STOP "Initialization"
+      }
+      
+      ELSE "No" {
+        ERRORS: [
+          "Single plugin fails to load",
+          "Voice skill unavailable",
+          "Proxy server not responding",
+          "Ollama not available",
+          "LocalStorage not accessible"
+        ]
+        
+        ACTION "Log Warning" [COLOR=YELLOW] {
+          MESSAGE: "Feature partially unavailable"
+        }
+        
+        CONTINUE "Partial Initialization" {
+          NOTE: "System still functional with reduced features"
+        }
+      }
+    }
+  }
+}
+
+# Performance Timeline
+TIMELINE "Startup Performance" {
+  
+  MILESTONE "0ms" -> "Start"
+  MILESTONE "500ms" -> "HTML & CSS Loaded"
+  MILESTONE "1000ms" -> "JavaScript Loaded"
+  MILESTONE "1500ms" -> "Core Initialized"
+  MILESTONE "2000ms" -> "Config Loaded"
+  MILESTONE "3000ms" -> "Plugins Loaded"
+  MILESTONE "4000ms" -> "Skills Loaded"
+  MILESTONE "4500ms" -> "UI Initialized"
+  MILESTONE "5000ms" -> "Services Checked"
+  MILESTONE "5200ms" -> "Ready!" [COLOR=GREEN]
+}
+
+# Optimization Tips
+OPTIMIZATIONS {
+  
+  TIP "Lazy Load Non-Essential Plugins" {
+    CODE: """
+    // Load heavy plugins after initial render
+    setTimeout(() => {
+      pluginManager.loadPlugin(HeavyPlugin);
+    }, 5000);
+    """
+  }
+  
+  TIP "Parallel Initialization" {
+    CODE: """
+    // Initialize skills in parallel
+    await Promise.all([
+      voice.initialize(),
+      learning.initialize(),
+      memory.initialize()
+    ]);
+    """
+  }
+  
+  TIP "Progressive Enhancement" {
+    CODE: """
+    // Show basic UI first, enhance later
+    showBasicUI();
+    await loadEnhancements();
+    """
+  }
+  
+  TIP "Cache Configuration" {
+    CODE: """
+    // Cache config in localStorage
+    const cached = localStorage.getItem('config');
+    if (cached) return JSON.parse(cached);
+    """
+  }
+}
+
+# Statistics
+STATS {
+  "Total Initialization Time": "~5 seconds",
+  "Critical Path": "Core -> Plugins -> Skills -> UI",
+  "Plugins Loaded": "9",
+  "Skills Loaded": "5",
+  "UI Components": "7",
+  "Parallel Operations": "Yes (Skills, Services)",
+  "Error Recovery": "Partial initialization on non-critical errors"
+}

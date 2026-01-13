@@ -1,0 +1,286 @@
+# Memory System Flow (FrogProG)
+# Version: 1.0
+# Author: JARVIS Team
+# Description: Memory management and context building
+
+START MemorySystemFlow
+
+# Input Sources
+BOX "Input Sources" {
+  SOURCE "User Query" as QUERY
+  SOURCE "AI Response" as RESPONSE
+  SOURCE "User Interaction" as INTERACTION
+}
+
+# Memory Processing Pipeline
+PIPELINE "Memory Processing" {
+  
+  STAGE "Process Input" {
+    INPUT: [QUERY, RESPONSE, INTERACTION]
+    ACTION: "Parse and prepare"
+  }
+  
+  STAGE "Extract Entities" {
+    EXTRACT: [
+      "Names (people, places)",
+      "Dates and times",
+      "Preferences",
+      "Instructions",
+      "Emotions"
+    ]
+  }
+  
+  STAGE "Analyze Importance" {
+    ALGORITHM: """
+    score = 0
+    if (containsName) score += 3
+    if (isPreference) score += 5
+    if (isInstruction) score += 4
+    if (hasEmotion) score += 2
+    else score += 1
+    """
+  }
+  
+  STAGE "Classify Type" {
+    TYPES: ["query", "response", "preference", "fact", "instruction"]
+  }
+}
+
+# Storage Decision
+DECISION "Storage Type?" {
+  
+  OPTION "Recent Conversation" -> "Short-term Memory" {
+    CAPACITY: 20
+    DURATION: "Current session"
+    EVICTION: "FIFO (First In, First Out)"
+  }
+  
+  OPTION "Important Information" -> "Long-term Memory" {
+    CAPACITY: 500
+    DURATION: "Persistent across sessions"
+    EVICTION: "Priority-based (lowest first)"
+  }
+  
+  OPTION "Named Entity" -> "Entity Memory" {
+    CAPACITY: "Unlimited (merged)"
+    DURATION: "Persistent"
+    EVICTION: "Never (merged instead)"
+  }
+}
+
+# Short-term Memory
+MEMORY_STORE "Short-term Memory" [COLOR=BLUE] {
+  
+  STRUCTURE: """
+  {
+    content: string,
+    timestamp: Date,
+    type: string
+  }
+  """
+  
+  PROCESS {
+    STEP "Store Item"
+    
+    CHECK "Size > 20?" {
+      IF "Yes" THEN {
+        ACTION "Evict Oldest" {
+          METHOD: "shift()"
+        }
+      }
+    }
+    
+    STEP "Item Stored"
+  }
+  
+  EXAMPLE: """
+  {
+    content: "User asked about weather",
+    timestamp: "2026-01-13T14:30:00Z",
+    type: "query"
+  }
+  """
+}
+
+# Long-term Memory
+MEMORY_STORE "Long-term Memory" [COLOR=RED] {
+  
+  STRUCTURE: """
+  {
+    content: string,
+    timestamp: Date,
+    importance: number (1-10),
+    type: string
+  }
+  """
+  
+  PROCESS {
+    STEP "Store Item"
+    
+    CHECK "Size > 500?" {
+      IF "Yes" THEN {
+        ACTION "Evict Low Priority" {
+          METHOD: "Remove lowest importance score"
+        }
+      }
+    }
+    
+    STEP "Item Stored"
+  }
+  
+  EXAMPLE: """
+  {
+    content: "User prefers Celsius",
+    timestamp: "2026-01-10T10:00:00Z",
+    importance: 8,
+    type: "preference"
+  }
+  """
+}
+
+# Entity Memory
+MEMORY_STORE "Entity Memory" [COLOR=CYAN] {
+  
+  STRUCTURE: """
+  {
+    name: string,
+    type: string,
+    attributes: object,
+    count: number,
+    lastMentioned: Date
+  }
+  """
+  
+  PROCESS {
+    STEP "Store Entity"
+    STEP "Update Count" {
+      ACTION: "count++"
+    }
+    STEP "Merge Similar" {
+      ACTION: "Combine duplicate entities"
+    }
+    STEP "Entity Stored"
+  }
+  
+  EXAMPLE: """
+  {
+    name: "John",
+    type: "person",
+    attributes: {
+      role: "colleague",
+      location: "Lisbon"
+    },
+    count: 15,
+    lastMentioned: "2026-01-13T14:30:00Z"
+  }
+  """
+}
+
+# Context Building
+BOX "Context Building" {
+  
+  STEP "Retrieve Memories" {
+    SOURCES: ["STM", "LTM", "Entities"]
+  }
+  
+  STEP "Find Relevant" {
+    ALGORITHM: """
+    relevance = (
+      keyword_match * 0.4 +
+      recency * 0.3 +
+      importance * 0.2 +
+      frequency * 0.1
+    )
+    """
+  }
+  
+  STEP "Build Context" {
+    OUTPUT: """
+    {
+      recent: [...],    // Last 5 from STM
+      relevant: [...],  // Top matches from LTM
+      entities: [...]   // Related entities
+    }
+    """
+  }
+  
+  STEP "Context Object" [COLOR=GREEN]
+}
+
+# Context Usage
+USAGE "Context in Query" {
+  FLOW: "Context Object -> Query Processing -> Enhanced Response"
+}
+
+END MemorySystemFlow
+
+# Importance Scoring Algorithm
+ALGORITHM "Importance Score" {
+  
+  INPUT: "Memory Item"
+  
+  CHECKS: [
+    {
+      condition: "User mentioned name?",
+      points: 3
+    },
+    {
+      condition: "Preference stated?",
+      points: 5
+    },
+    {
+      condition: "Explicit instruction?",
+      points: 4
+    },
+    {
+      condition: "Emotional content?",
+      points: 2
+    },
+    {
+      condition: "Default",
+      points: 1
+    }
+  ]
+  
+  DECISION "Score >= 5?" {
+    IF "Yes" -> "Long-term Memory"
+    ELSE -> "Short-term Memory"
+  }
+}
+
+# Memory Consolidation
+PROCESS "Consolidation" {
+  
+  FROM "Short-term Memory"
+  
+  EVALUATE "Importance" {
+    IF "High" THEN {
+      ACTION "Promote to LTM" [COLOR=GREEN]
+    }
+    ELSE {
+      ACTION "Discard" [COLOR=RED]
+    }
+  }
+  
+  PERIODIC "Review" {
+    FREQUENCY: "Daily"
+    
+    STEP "Decay Score" {
+      FORMULA: "importance *= 0.95"
+    }
+    
+    CHECK "Still Important?" {
+      IF "Yes" -> "Keep in LTM"
+      ELSE -> "Archive"
+    }
+  }
+}
+
+# Memory Statistics
+STATS {
+  "Short-term Capacity": "20 items",
+  "Long-term Capacity": "500 items",
+  "Entity Capacity": "Unlimited",
+  "Average Retrieval Time": "10-50ms",
+  "Context Size": "5-20 items"
+}
