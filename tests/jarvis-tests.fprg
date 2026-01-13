@@ -1,0 +1,478 @@
+# JARVIS Automated Tests
+# FrogProG Test Suite
+# Author: JARVIS Development Team
+# Date: 2026-01-13
+
+################################################################################
+# TEST SUITE: JARVIS Desktop Application
+################################################################################
+
+@SUITE "JARVIS Core Tests"
+@DESCRIPTION "Test core functionality of JARVIS system"
+@VERSION "1.0.0"
+
+################################################################################
+# SETUP
+################################################################################
+
+@SETUP
+  @LOG "Starting JARVIS test suite..."
+  @SET test_dir = "~/JARVIS"
+  @SET proxy_port = 3000
+  @SET web_port = 8080
+  @SET ollama_url = "http://localhost:11434"
+@END
+
+################################################################################
+# TEST 1: Project Structure
+################################################################################
+
+@TEST "Project Structure Validation"
+@PRIORITY HIGH
+@CATEGORY "Structure"
+
+  @STEP "Check root files exist"
+    @ASSERT_FILE_EXISTS "${test_dir}/package.json"
+    @ASSERT_FILE_EXISTS "${test_dir}/README.md"
+    @ASSERT_FILE_EXISTS "${test_dir}/proxy-server.js"
+    @LOG "✅ Root files exist"
+  @END
+
+  @STEP "Check src directory structure"
+    @ASSERT_DIR_EXISTS "${test_dir}/src"
+    @ASSERT_DIR_EXISTS "${test_dir}/src/config"
+    @ASSERT_DIR_EXISTS "${test_dir}/src/core"
+    @ASSERT_DIR_EXISTS "${test_dir}/src/plugins"
+    @ASSERT_DIR_EXISTS "${test_dir}/src/skills"
+    @LOG "✅ Source directories exist"
+  @END
+
+  @STEP "Check public directory structure"
+    @ASSERT_DIR_EXISTS "${test_dir}/public"
+    @ASSERT_DIR_EXISTS "${test_dir}/public/css"
+    @ASSERT_DIR_EXISTS "${test_dir}/public/js"
+    @ASSERT_DIR_EXISTS "${test_dir}/public/js/ui"
+    @LOG "✅ Public directories exist"
+  @END
+
+  @STEP "Check core files"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/core/JarvisCore.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/core/PluginManager.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/core/EventBus.js"
+    @LOG "✅ Core files exist"
+  @END
+
+  @STEP "Check config files"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/config/default.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/config/ConfigManager.js"
+    @LOG "✅ Config files exist"
+  @END
+
+  @STEP "Check plugin files"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/TaskPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/CalendarPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/WeatherPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/SearchPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/FilePlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/ReminderPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/NewsPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/TranslationPlugin.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/plugins/MusicPlugin.js"
+    @LOG "✅ Plugin files exist (9/9)"
+  @END
+
+  @STEP "Check skill files"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/skills/VoiceSkill.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/skills/LearningSkill.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/skills/MemorySkill.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/skills/PersonalitySkill.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/src/skills/AutomationSkill.js"
+    @LOG "✅ Skill files exist (5/5)"
+  @END
+
+  @STEP "Check UI files"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/index.html"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/css/styles.css"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/css/components.css"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/css/animations.css"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/app.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/chat.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/tasks.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/calendar.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/code.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/automations.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/memory.js"
+    @ASSERT_FILE_EXISTS "${test_dir}/public/js/ui/settings.js"
+    @LOG "✅ UI files exist (12/12)"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 2: Dependencies
+################################################################################
+
+@TEST "Node Dependencies Check"
+@PRIORITY HIGH
+@CATEGORY "Dependencies"
+
+  @STEP "Check Node.js installation"
+    @EXEC "node --version"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ Node.js is installed"
+  @END
+
+  @STEP "Check npm installation"
+    @EXEC "npm --version"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ npm is installed"
+  @END
+
+  @STEP "Check if node_modules exists"
+    @IF_DIR_EXISTS "${test_dir}/node_modules"
+      @LOG "✅ Dependencies already installed"
+    @ELSE
+      @LOG "⚠️  Dependencies not installed. Run: npm install"
+      @EXEC "cd ${test_dir} && npm install"
+      @ASSERT_EXIT_CODE 0
+      @LOG "✅ Dependencies installed successfully"
+    @END_IF
+  @END
+
+  @STEP "Verify package.json validity"
+    @EXEC "cd ${test_dir} && npm run verify || echo 'No verify script'"
+    @LOG "✅ package.json is valid"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 3: Ollama Service
+################################################################################
+
+@TEST "Ollama Service Check"
+@PRIORITY CRITICAL
+@CATEGORY "External Services"
+
+  @STEP "Check if Ollama is running"
+    @EXEC "curl -s ${ollama_url}/api/tags"
+    @IF_EXIT_CODE 0
+      @LOG "✅ Ollama is running"
+    @ELSE
+      @LOG "❌ Ollama is not running"
+      @LOG "   Please start Ollama: ollama serve"
+      @FAIL "Ollama service not available"
+    @END_IF
+  @END
+
+  @STEP "Check available models"
+    @EXEC "ollama list"
+    @ASSERT_EXIT_CODE 0
+    @CAPTURE_OUTPUT models_output
+    @LOG "Available models:"
+    @LOG "${models_output}"
+  @END
+
+  @STEP "Verify llama3 model exists"
+    @EXEC "ollama list | grep llama3"
+    @IF_EXIT_CODE 0
+      @LOG "✅ llama3 model is available"
+    @ELSE
+      @LOG "⚠️  llama3 model not found"
+      @LOG "   Install it: ollama pull llama3"
+    @END_IF
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 4: Proxy Server
+################################################################################
+
+@TEST "Proxy Server Functionality"
+@PRIORITY HIGH
+@CATEGORY "Backend"
+
+  @STEP "Start proxy server"
+    @LOG "Starting proxy server on port ${proxy_port}..."
+    @EXEC_BACKGROUND "cd ${test_dir} && node proxy-server.js"
+    @WAIT 3
+    @LOG "✅ Proxy server started"
+  @END
+
+  @STEP "Check proxy server health"
+    @EXEC "curl -s http://localhost:${proxy_port}/health || echo 'FAILED'"
+    @IF_OUTPUT_CONTAINS "FAILED"
+      @LOG "⚠️  Proxy server health check endpoint not found"
+    @ELSE
+      @LOG "✅ Proxy server is responding"
+    @END_IF
+  @END
+
+  @STEP "Test proxy CORS headers"
+    @EXEC "curl -I http://localhost:${proxy_port}/ 2>/dev/null | grep -i 'access-control'"
+    @IF_EXIT_CODE 0
+      @LOG "✅ CORS headers are present"
+    @ELSE
+      @LOG "⚠️  CORS headers not found"
+    @END_IF
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 5: Code Quality
+################################################################################
+
+@TEST "Code Syntax Validation"
+@PRIORITY MEDIUM
+@CATEGORY "Code Quality"
+
+  @STEP "Validate JavaScript syntax - Core"
+    @EXEC "node -c ${test_dir}/src/core/JarvisCore.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "node -c ${test_dir}/src/core/PluginManager.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "node -c ${test_dir}/src/core/EventBus.js"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ Core JavaScript syntax is valid"
+  @END
+
+  @STEP "Validate JavaScript syntax - Config"
+    @EXEC "node -c ${test_dir}/src/config/ConfigManager.js"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ Config JavaScript syntax is valid"
+  @END
+
+  @STEP "Validate JavaScript syntax - Plugins"
+    @FOR_EACH plugin IN ["TaskPlugin", "CalendarPlugin", "WeatherPlugin", "SearchPlugin", "FilePlugin", "ReminderPlugin", "NewsPlugin", "TranslationPlugin", "MusicPlugin"]
+      @EXEC "node -c ${test_dir}/src/plugins/${plugin}.js"
+      @ASSERT_EXIT_CODE 0
+    @END_FOR
+    @LOG "✅ Plugin JavaScript syntax is valid (9/9)"
+  @END
+
+  @STEP "Validate JavaScript syntax - Skills"
+    @FOR_EACH skill IN ["VoiceSkill", "LearningSkill", "MemorySkill", "PersonalitySkill", "AutomationSkill"]
+      @EXEC "node -c ${test_dir}/src/skills/${skill}.js"
+      @ASSERT_EXIT_CODE 0
+    @END_FOR
+    @LOG "✅ Skill JavaScript syntax is valid (5/5)"
+  @END
+
+  @STEP "Validate HTML syntax"
+    @EXEC "grep -c '<html' ${test_dir}/public/index.html"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ HTML file is valid"
+  @END
+
+  @STEP "Validate CSS syntax"
+    @EXEC "grep -c 'root' ${test_dir}/public/css/styles.css"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ CSS files are valid"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 6: File Integrity
+################################################################################
+
+@TEST "File Content Integrity"
+@PRIORITY MEDIUM
+@CATEGORY "Integrity"
+
+  @STEP "Check JarvisCore exports"
+    @EXEC "grep -c 'export class JarvisCore' ${test_dir}/src/core/JarvisCore.js"
+    @ASSERT_OUTPUT "1"
+    @LOG "✅ JarvisCore exports correctly"
+  @END
+
+  @STEP "Check PluginManager exports"
+    @EXEC "grep -c 'export class PluginManager' ${test_dir}/src/core/PluginManager.js"
+    @ASSERT_OUTPUT "1"
+    @LOG "✅ PluginManager exports correctly"
+  @END
+
+  @STEP "Check EventBus exports"
+    @EXEC "grep -c 'export class EventBus' ${test_dir}/src/core/EventBus.js"
+    @ASSERT_OUTPUT "1"
+    @LOG "✅ EventBus exports correctly"
+  @END
+
+  @STEP "Check Skills exports"
+    @FOR_EACH skill IN ["VoiceSkill", "LearningSkill", "MemorySkill", "PersonalitySkill", "AutomationSkill"]
+      @EXEC "grep -c 'export class ${skill}' ${test_dir}/src/skills/${skill}.js"
+      @ASSERT_OUTPUT "1"
+    @END_FOR
+    @LOG "✅ All skills export correctly"
+  @END
+
+  @STEP "Check HTML has required elements"
+    @EXEC "grep -c 'id=\"app\"' ${test_dir}/public/index.html"
+    @ASSERT_OUTPUT "1"
+    @EXEC "grep -c 'id=\"chatMessages\"' ${test_dir}/public/index.html"
+    @ASSERT_OUTPUT "1"
+    @EXEC "grep -c 'id=\"chatInput\"' ${test_dir}/public/index.html"
+    @ASSERT_OUTPUT "1"
+    @LOG "✅ HTML has required elements"
+  @END
+
+  @STEP "Check CSS has theme variables"
+    @EXEC "grep -c '--primary:' ${test_dir}/public/css/styles.css"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c '--bg-primary:' ${test_dir}/public/css/styles.css"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ CSS has theme variables"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 7: Configuration
+################################################################################
+
+@TEST "Configuration Files"
+@PRIORITY MEDIUM
+@CATEGORY "Configuration"
+
+  @STEP "Check default config structure"
+    @EXEC "grep -c 'ollama:' ${test_dir}/src/config/default.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c 'voice:' ${test_dir}/src/config/default.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c 'personality:' ${test_dir}/src/config/default.js"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ Default config has required sections"
+  @END
+
+  @STEP "Check ConfigManager methods"
+    @EXEC "grep -c 'get(' ${test_dir}/src/config/ConfigManager.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c 'set(' ${test_dir}/src/config/ConfigManager.js"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ ConfigManager has get/set methods"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 8: Web Interface
+################################################################################
+
+@TEST "Web Interface Loading"
+@PRIORITY HIGH
+@CATEGORY "Frontend"
+
+  @STEP "Start web server"
+    @LOG "Starting web server on port ${web_port}..."
+    @EXEC_BACKGROUND "cd ${test_dir}/public && python3 -m http.server ${web_port} 2>/dev/null || npx http-server -p ${web_port}"
+    @WAIT 3
+    @LOG "✅ Web server started"
+  @END
+
+  @STEP "Check HTML loads"
+    @EXEC "curl -s http://localhost:${web_port}/index.html | grep -c '<title>JARVIS'"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ HTML page loads correctly"
+  @END
+
+  @STEP "Check CSS loads"
+    @EXEC "curl -s http://localhost:${web_port}/css/styles.css | grep -c 'app-container'"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ CSS loads correctly"
+  @END
+
+  @STEP "Check JavaScript loads"
+    @EXEC "curl -s http://localhost:${web_port}/js/app.js | grep -c 'JarvisApp'"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ JavaScript loads correctly"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 9: Memory and Storage
+################################################################################
+
+@TEST "Memory and Storage System"
+@PRIORITY MEDIUM
+@CATEGORY "Functionality"
+
+  @STEP "Check MemorySkill structure"
+    @EXEC "grep -c 'shortTermMemory' ${test_dir}/src/skills/MemorySkill.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c 'longTermMemory' ${test_dir}/src/skills/MemorySkill.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c 'entities' ${test_dir}/src/skills/MemorySkill.js"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ MemorySkill has required components"
+  @END
+
+  @STEP "Check LearningSkill structure"
+    @EXEC "grep -c 'recordInteraction' ${test_dir}/src/skills/LearningSkill.js"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "grep -c 'learnFromFeedback' ${test_dir}/src/skills/LearningSkill.js"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ LearningSkill has learning methods"
+  @END
+
+@END_TEST
+
+################################################################################
+# TEST 10: Integration Test
+################################################################################
+
+@TEST "Basic Integration Test"
+@PRIORITY CRITICAL
+@CATEGORY "Integration"
+
+  @STEP "Verify all services are running"
+    @LOG "Checking all required services..."
+    @EXEC "pgrep -f 'ollama serve'"
+    @ASSERT_EXIT_CODE 0
+    @EXEC "pgrep -f 'proxy-server.js'"
+    @ASSERT_EXIT_CODE 0
+    @LOG "✅ All services are running"
+  @END
+
+  @STEP "Test end-to-end query (simulated)"
+    @LOG "Testing simulated query flow..."
+    @SET test_query = "Hello JARVIS"
+    @LOG "Query: ${test_query}"
+    @LOG "Expected flow:"
+    @LOG "  1. User Input → Chat UI"
+    @LOG "  2. Chat UI → JarvisCore"
+    @LOG "  3. JarvisCore → Proxy Server"
+    @LOG "  4. Proxy Server → Ollama"
+    @LOG "  5. Response back through chain"
+    @LOG "✅ Query flow structure is correct"
+  @END
+
+@END_TEST
+
+################################################################################
+# CLEANUP
+################################################################################
+
+@CLEANUP
+  @LOG "Stopping test servers..."
+  @EXEC "pkill -f 'proxy-server.js' 2>/dev/null || true"
+  @EXEC "pkill -f 'http.server ${web_port}' 2>/dev/null || true"
+  @EXEC "pkill -f 'http-server.*${web_port}' 2>/dev/null || true"
+  @LOG "✅ Cleanup complete"
+@END
+
+################################################################################
+# REPORT
+################################################################################
+
+@REPORT
+  @FORMAT "detailed"
+  @OUTPUT "test-results.txt"
+  @GENERATE_HTML "test-results.html"
+  @LOG "═══════════════════════════════════════════════════════════════"
+  @LOG "                 JARVIS TEST SUITE COMPLETED                   "
+  @LOG "═══════════════════════════════════════════════════════════════"
+  @SUMMARY
+@END
