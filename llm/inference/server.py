@@ -1,5 +1,5 @@
 """
-JARVIS-LLM Inference Server
+MOM Inference Server
 
 REST API server compatible with OpenAI's API format, making it easy
 to integrate with the existing JARVIS frontend and other tools.
@@ -28,16 +28,16 @@ def create_app(generator: TextGenerator):
 
     @app.route("/health", methods=["GET"])
     def health():
-        return jsonify({"status": "healthy", "model": "jarvis-llm"})
+        return jsonify({"status": "healthy", "model": "mom"})
 
     @app.route("/v1/models", methods=["GET"])
     def list_models():
         return jsonify({
             "object": "list",
             "data": [{
-                "id": "jarvis-llm",
+                "id": "mom",
                 "object": "model",
-                "owned_by": "jarvis",
+                "owned_by": "mom",
                 "permission": [],
             }],
         })
@@ -63,7 +63,7 @@ def create_app(generator: TextGenerator):
             "id": f"cmpl-{uuid.uuid4().hex[:8]}",
             "object": "text_completion",
             "created": int(time.time()),
-            "model": "jarvis-llm",
+            "model": "mom",
             "choices": [{
                 "text": response_text,
                 "index": 0,
@@ -107,7 +107,7 @@ def create_app(generator: TextGenerator):
                         "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
                         "object": "chat.completion.chunk",
                         "created": int(time.time()),
-                        "model": "jarvis-llm",
+                        "model": "mom",
                         "choices": [{
                             "index": 0,
                             "delta": {"content": token},
@@ -130,7 +130,7 @@ def create_app(generator: TextGenerator):
             "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
             "object": "chat.completion",
             "created": int(time.time()),
-            "model": "jarvis-llm",
+            "model": "mom",
             "choices": [{
                 "index": 0,
                 "message": {"role": "assistant", "content": response_text},

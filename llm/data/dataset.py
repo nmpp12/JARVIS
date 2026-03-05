@@ -1,5 +1,5 @@
 """
-Dataset and data loading utilities for JARVIS-LLM training.
+Dataset and data loading utilities for MOM training.
 
 Supports:
 - Pre-tokenized binary datasets (memory-mapped for large corpora)

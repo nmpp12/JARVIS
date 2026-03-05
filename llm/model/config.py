@@ -1,4 +1,4 @@
-"""Model configuration for JARVIS-LLM."""
+"""Model configuration for MOM."""
 
 from dataclasses import dataclass, field
 from typing import Optional
@@ -8,7 +8,7 @@ import os
 
 @dataclass
 class ModelConfig:
-    """Configuration for the JARVIS Transformer model.
+    """Configuration for the MOM Transformer model.
 
     Supports multiple size presets from tiny (for testing) to large-scale models.
     Uses modern architecture choices: RoPE, GQA, RMSNorm, SwiGLU.
@@ -39,7 +39,7 @@ class ModelConfig:
     gradient_checkpointing: bool = False
 
     # Metadata
-    model_type: str = "jarvis-llm"
+    model_type: str = "mom"
 
     @classmethod
     def tiny(cls) -> "ModelConfig":

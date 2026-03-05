@@ -1,5 +1,5 @@
 """
-Text generation engine for JARVIS-LLM.
+Text generation engine for MOM.
 
 Supports multiple decoding strategies:
 - Greedy decoding
@@ -14,7 +14,7 @@ import torch
 import torch.nn.functional as F
 from typing import List, Optional
 
-from ..model.transformer import JARVISTransformer
+from ..model.transformer import MOMTransformer
 from ..model.config import ModelConfig
 
 
@@ -23,7 +23,7 @@ class TextGenerator:
 
     def __init__(
         self,
-        model: JARVISTransformer,
+        model: MOMTransformer,
         tokenizer,
         device: Optional[torch.device] = None,
     ):
@@ -155,7 +155,7 @@ class TextGenerator:
         config = ModelConfig.load(os.path.join(checkpoint_path, "model_config.json"))
 
         # Load model
-        model = JARVISTransformer(config)
+        model = MOMTransformer(config)
         state_dict = torch.load(
             os.path.join(checkpoint_path, "model.pt"),
             map_location=device,
@@ -163,8 +163,8 @@ class TextGenerator:
         model.load_state_dict(state_dict)
 
         # Load tokenizer
-        from ..data.tokenizer import JARVISTokenizer
-        tokenizer = JARVISTokenizer(
+        from ..data.tokenizer import MOMTokenizer
+        tokenizer = MOMTokenizer(
             vocab_size=config.vocab_size,
             model_path=os.path.join(checkpoint_path, "tokenizer"),
         )

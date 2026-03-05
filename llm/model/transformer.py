@@ -1,5 +1,5 @@
 """
-JARVIS Transformer - A modern GPT-style decoder-only transformer.
+MOM Transformer - A modern GPT-style decoder-only transformer.
 
 Key architectural choices (aligned with LLaMA/Mistral family):
 - Rotary Positional Embeddings (RoPE) for length generalization
@@ -179,8 +179,8 @@ class TransformerBlock(nn.Module):
         return x, new_kv_cache
 
 
-class JARVISTransformer(nn.Module):
-    """JARVIS Language Model - Decoder-only Transformer.
+class MOMTransformer(nn.Module):
+    """MOM (Master of Models) - Decoder-only Transformer.
 
     A modern transformer LLM architecture incorporating:
     - RoPE (Rotary Positional Embeddings)

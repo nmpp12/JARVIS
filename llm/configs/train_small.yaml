@@ -1,4 +1,4 @@
-# JARVIS-LLM Training Config - Small Model (~125M params)
+# MOM Training Config - Small Model (~125M params)
 # Good starting point for single GPU training
 
 model:
@@ -25,7 +25,7 @@ training:
   dtype: bfloat16
   use_amp: true
 
-  checkpoint_dir: ./checkpoints/jarvis-small
+  checkpoint_dir: ./checkpoints/mom-small
   save_every_steps: 2000
   eval_every_steps: 500
   log_every_steps: 10

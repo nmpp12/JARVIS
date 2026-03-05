@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JARVIS-LLM Text Generation Script
+MOM Text Generation Script
 
 Usage:
     # Interactive mode
@@ -24,7 +24,7 @@ from llm.inference.generator import TextGenerator
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate text with JARVIS-LLM")
+    parser = argparse.ArgumentParser(description="Generate text with MOM")
     parser.add_argument("--checkpoint", type=str, required=True,
                         help="Path to model checkpoint")
     parser.add_argument("--prompt", type=str, help="Text prompt (interactive if not set)")
@@ -45,7 +45,7 @@ def parse_args():
 def interactive_mode(generator: TextGenerator, args):
     """Run interactive text generation."""
     print("\n" + "=" * 60)
-    print("JARVIS-LLM Interactive Mode")
+    print("MOM Interactive Mode")
     print("Type your prompt and press Enter. Type 'quit' to exit.")
     print("=" * 60 + "\n")
 

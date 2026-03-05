@@ -1,5 +1,5 @@
 """
-JARVIS-LLM Training Engine
+MOM Training Engine
 
 Full-featured training loop with:
 - Mixed precision training (BF16/FP16)
@@ -25,7 +25,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from ..model.config import ModelConfig
-from ..model.transformer import JARVISTransformer
+from ..model.transformer import MOMTransformer
 from .scheduler import CosineWarmupScheduler
 
 
@@ -100,11 +100,11 @@ class TrainingConfig:
 
 
 class Trainer:
-    """Training engine for JARVIS-LLM."""
+    """Training engine for MOM."""
 
     def __init__(
         self,
-        model: JARVISTransformer,
+        model: MOMTransformer,
         train_loader: DataLoader,
         config: TrainingConfig,
         eval_loader: Optional[DataLoader] = None,
@@ -199,7 +199,7 @@ class Trainer:
     def train(self) -> Dict:
         """Run the full training loop."""
         print(f"\n{'='*60}")
-        print(f"JARVIS-LLM Training")
+        print(f"MOM Training")
         print(f"{'='*60}")
         print(f"Model parameters: {self.model.num_parameters():,}")
         print(f"Device: {self.device}")

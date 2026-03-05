@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JARVIS-LLM Data Curation Script
+MOM Data Curation Script
 
 Generate and manage ML/DL training data.
 

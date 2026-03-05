@@ -1,4 +1,4 @@
-"""Utility helpers for JARVIS-LLM."""
+"""Utility helpers for MOM LLM."""
 
 import os
 import random

@@ -1,12 +1,12 @@
 /**
- * JARVIS-LLM Client
+ * MOM Client
  *
  * Connects the JARVIS frontend to the custom-trained LLM inference server.
  * Provides the same interface as OllamaClient for seamless switching.
- * The JARVIS-LLM server exposes an OpenAI-compatible API.
+ * The MOM server exposes an OpenAI-compatible API.
  */
 
-export class JARVISLLMClient {
+export class MOMLLMClient {
     constructor(baseUrl = 'http://localhost:8000') {
         this.baseUrl = baseUrl;
         this.isConnected = false;
@@ -32,21 +32,21 @@ export class JARVISLLMClient {
             return data.data.map(m => m.id);
         } catch (error) {
             this.isConnected = false;
-            return { error: `JARVIS-LLM connection failed: ${error.message}`, models: [] };
+            return { error: `MOM connection failed: ${error.message}`, models: [] };
         }
     }
 
     setModel(_modelName) {
-        // JARVIS-LLM serves a single model
+        // MOM serves a single model
     }
 
     async getCurrentModel() {
-        return { name: 'jarvis-llm', info: this.modelInfo };
+        return { name: 'mom', info: this.modelInfo };
     }
 
     async generate(prompt, options = {}) {
         if (!this.isConnected) {
-            throw new Error('Not connected to JARVIS-LLM server');
+            throw new Error('Not connected to MOM server');
         }
 
         const response = await fetch(`${this.baseUrl}/v1/completions`, {
@@ -72,7 +72,7 @@ export class JARVISLLMClient {
 
     async chat(messages, options = {}) {
         if (!this.isConnected) {
-            throw new Error('Not connected to JARVIS-LLM server');
+            throw new Error('Not connected to MOM server');
         }
 
         const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
@@ -98,7 +98,7 @@ export class JARVISLLMClient {
 
     async streamGenerate(prompt, onChunk, options = {}) {
         if (!this.isConnected) {
-            throw new Error('Not connected to JARVIS-LLM server');
+            throw new Error('Not connected to MOM server');
         }
 
         const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {

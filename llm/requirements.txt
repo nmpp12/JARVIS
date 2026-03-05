@@ -1,4 +1,4 @@
-# JARVIS-LLM Dependencies
+# MOM (Master of Models) - LLM Dependencies
 
 # Core ML Framework
 torch>=2.1.0

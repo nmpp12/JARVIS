@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JARVIS-LLM Training Script
+MOM Training Script
 
 Usage:
     # Train with default config (small model)
@@ -30,15 +30,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import torch
 
 from llm.model.config import ModelConfig
-from llm.model.transformer import JARVISTransformer
-from llm.data.tokenizer import JARVISTokenizer
+from llm.model.transformer import MOMTransformer
+from llm.data.tokenizer import MOMTokenizer
 from llm.data.dataset import MLKnowledgeDataset, DataCollator, create_dataloader
 from llm.data.knowledge_curator import KnowledgeCurator
 from llm.training.trainer import Trainer, TrainingConfig
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train JARVIS-LLM")
+    parser = argparse.ArgumentParser(description="Train MOM")
     parser.add_argument("--config", type=str, help="Path to YAML config file")
     parser.add_argument("--preset", type=str, default="small",
                         choices=["tiny", "small", "medium", "large", "xl"],
@@ -147,7 +147,7 @@ def main():
         sys.exit(1)
 
     # Initialize tokenizer
-    tokenizer = JARVISTokenizer(vocab_size=model_config.vocab_size)
+    tokenizer = MOMTokenizer(vocab_size=model_config.vocab_size)
 
     # Create data loaders
     print(f"\nLoading training data from: {data_path}")
@@ -173,7 +173,7 @@ def main():
         )
 
     # Create model
-    model = JARVISTransformer(model_config)
+    model = MOMTransformer(model_config)
     print(f"Model parameters: {model.num_parameters():,}")
     print(f"Device: {'cuda' if torch.cuda.is_available() else 'cpu'}")
 

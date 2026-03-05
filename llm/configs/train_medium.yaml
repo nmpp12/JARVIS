@@ -1,4 +1,4 @@
-# JARVIS-LLM Training Config - Medium Model (~350M params)
+# MOM Training Config - Medium Model (~350M params)
 # Requires 1-2 GPUs (24GB+ VRAM each)
 
 model:
@@ -26,12 +26,12 @@ training:
   use_amp: true
   distributed: false
 
-  checkpoint_dir: ./checkpoints/jarvis-medium
+  checkpoint_dir: ./checkpoints/mom-medium
   save_every_steps: 1000
   eval_every_steps: 500
   log_every_steps: 10
 
-  wandb_project: jarvis-llm
+  wandb_project: mom
   wandb_run_name: medium-v1
 
 data:

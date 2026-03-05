@@ -1,4 +1,4 @@
-"""Learning rate schedulers for JARVIS-LLM training."""
+"""Learning rate schedulers for MOM LLM training."""
 
 import math
 from torch.optim.lr_scheduler import _LRScheduler

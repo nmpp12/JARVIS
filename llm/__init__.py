@@ -1,5 +1,5 @@
 """
-JARVIS Custom LLM - A transformer-based language model specialized in
+MOM (Master of Models) - A transformer-based language model specialized in
 Deep Learning and Machine Learning knowledge.
 
 Architecture: GPT-style decoder-only transformer with:
@@ -13,4 +13,4 @@ Designed for training on curated ML/DL research, textbooks, and documentation.
 """
 
 __version__ = "0.1.0"
-__model_name__ = "JARVIS-LLM"
+__model_name__ = "MOM"

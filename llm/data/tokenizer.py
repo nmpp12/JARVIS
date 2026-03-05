@@ -1,5 +1,5 @@
 """
-JARVIS Tokenizer - BPE tokenizer with ML/DL domain-specific vocabulary.
+MOM Tokenizer - BPE tokenizer with ML/DL domain-specific vocabulary.
 
 Wraps SentencePiece or tiktoken for BPE, and adds special tokens
 for structured ML knowledge (code blocks, math, paper references).
@@ -68,7 +68,7 @@ ML_VOCABULARY = [
 ]
 
 
-class JARVISTokenizer:
+class MOMTokenizer:
     """BPE tokenizer with ML/DL domain support.
 
     Supports two backends:
@@ -150,7 +150,7 @@ class JARVISTokenizer:
         user_defined_symbols = list(self.special_tokens.keys()) + ML_VOCABULARY
         spm.SentencePieceTrainer.train(
             input=merged_path,
-            model_prefix=os.path.join(output_dir, "jarvis_tokenizer"),
+            model_prefix=os.path.join(output_dir, "mom_tokenizer"),
             vocab_size=self.vocab_size,
             model_type="bpe",
             character_coverage=0.9995,
@@ -166,7 +166,7 @@ class JARVISTokenizer:
 
         # Load the trained model
         self._tokenizer = spm.SentencePieceProcessor()
-        self._tokenizer.load(os.path.join(output_dir, "jarvis_tokenizer.model"))
+        self._tokenizer.load(os.path.join(output_dir, "mom_tokenizer.model"))
         self.backend = "sentencepiece"
 
         # Save config
@@ -239,7 +239,7 @@ class JARVISTokenizer:
 
         if self.backend == "sentencepiece":
             import sentencepiece as spm
-            model_path = os.path.join(path, "jarvis_tokenizer.model")
+            model_path = os.path.join(path, "mom_tokenizer.model")
             if os.path.exists(model_path):
                 self._tokenizer = spm.SentencePieceProcessor()
                 self._tokenizer.load(model_path)
