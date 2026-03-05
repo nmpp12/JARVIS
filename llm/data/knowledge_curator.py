@@ -294,6 +294,7 @@ class KnowledgeCurator:
         self._generate_foundations()
         self._generate_deep_learning()
         self._generate_llm_knowledge()
+        self._generate_quantization_knowledge()
         self._generate_training_recipes()
         self._generate_systems_knowledge()
 
@@ -536,6 +537,85 @@ class KnowledgeCurator:
                 "        lora_out = (x @ self.lora_A.T @ self.lora_B.T) * self.scaling\n"
                 "        return base_out + lora_out"
             ),
+        )
+
+    def _generate_quantization_knowledge(self) -> None:
+        """Generate knowledge about model quantization and efficiency."""
+        self.add_concept_explanation(
+            concept="BitNet b1.58 - 1.58-bit Quantization",
+            explanation=(
+                "BitNet b1.58 (Ma et al., 2024) is a radical quantization approach that "
+                "constrains every weight to ternary values {-1, 0, +1}, requiring only "
+                "log2(3) ≈ 1.58 bits per parameter. This achieves ~10x model compression "
+                "compared to FP16 while maintaining competitive quality.\n\n"
+                "Key innovations:\n"
+                "1. Absmean Quantization: Scale γ = mean(|W|), then W_q = round(W/γ) clamped to {-1,0,1}\n"
+                "2. Straight-Through Estimator (STE): During training, full-precision weights are "
+                "maintained for gradient updates, but quantized on each forward pass. Gradients "
+                "pass through the quantization as if it weren't there.\n"
+                "3. 8-bit Activation Quantization: Inputs to each linear layer are quantized to "
+                "INT8 per-token using absmax scaling.\n"
+                "4. No floating-point multiplication at inference: Since weights are {-1,0,1}, "
+                "matrix multiply becomes pure addition/subtraction.\n\n"
+                "The key insight is that while individual ternary weights have very low precision, "
+                "the law of large numbers means that the aggregate computation over thousands of "
+                "weights closely approximates the full-precision result. The zero values provide "
+                "implicit sparsity, further improving efficiency.\n\n"
+                "Storage: Ternary values are packed as 2-bit encodings (4 values per byte), with "
+                "a single FP32 scale factor per tensor. A 1.3B parameter model shrinks from "
+                "~2.5GB (FP16) to ~250MB."
+            ),
+            category="large_language_models",
+            subcategory="efficiency",
+            difficulty="expert",
+            math_notation="W_q = clamp(round(W / mean(|W|)), -1, 1), bits = log2(3) ≈ 1.58",
+            code_example=(
+                "import torch\n"
+                "import torch.nn as nn\n\n"
+                "def ternary_quantize(weight):\n"
+                "    \"\"\"Quantize to {-1, 0, +1} via absmean scaling.\"\"\"\n"
+                "    scale = weight.abs().mean().clamp(min=1e-5)\n"
+                "    quantized = (weight / scale).round().clamp(-1, 1)\n"
+                "    return quantized, scale\n\n"
+                "class BitLinear(nn.Module):\n"
+                "    def __init__(self, in_features, out_features):\n"
+                "        super().__init__()\n"
+                "        self.weight = nn.Parameter(torch.randn(out_features, in_features))\n"
+                "        self.input_norm = nn.LayerNorm(in_features, elementwise_affine=False)\n\n"
+                "    def forward(self, x):\n"
+                "        x = self.input_norm(x)\n"
+                "        # STE: quantize forward, pass gradient through\n"
+                "        w_q, scale = ternary_quantize(self.weight)\n"
+                "        w_ste = self.weight + (w_q * scale - self.weight).detach()\n"
+                "        return nn.functional.linear(x, w_ste)"
+            ),
+        )
+
+        self.add_concept_explanation(
+            concept="Quantization Methods for LLMs",
+            explanation=(
+                "Quantization reduces model precision to decrease size and speed up inference. "
+                "Common approaches for LLMs:\n\n"
+                "1. Post-Training Quantization (PTQ):\n"
+                "   - GPTQ: Layer-wise quantization minimizing reconstruction error\n"
+                "   - AWQ: Activation-aware weight quantization preserving salient weights\n"
+                "   - SqueezeLLM: Non-uniform quantization with sensitivity-based allocation\n\n"
+                "2. Quantization-Aware Training (QAT):\n"
+                "   - BitNet: Train with ternary weights from scratch\n"
+                "   - QLoRA: 4-bit base model + LoRA adapters in FP16\n\n"
+                "3. Precision levels:\n"
+                "   - FP16/BF16: 16 bits (standard training)\n"
+                "   - INT8: 8 bits (~2x compression, minimal quality loss)\n"
+                "   - INT4/NF4: 4 bits (~4x compression, slight quality loss)\n"
+                "   - INT2/Ternary: 1.58-2 bits (~8-10x compression)\n"
+                "   - Binary: 1 bit (~16x compression, significant quality loss)\n\n"
+                "The sweet spot for quality-efficiency tradeoff is shifting: BitNet b1.58 "
+                "shows that 1.58-bit models can match FP16 quality at the same model size, "
+                "fundamentally changing the efficiency landscape."
+            ),
+            category="large_language_models",
+            subcategory="efficiency",
+            difficulty="advanced",
         )
 
     def _generate_training_recipes(self) -> None:

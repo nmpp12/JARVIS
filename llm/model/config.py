@@ -34,6 +34,10 @@ class ModelConfig:
     tie_word_embeddings: bool = True
     use_flash_attention: bool = True
 
+    # Quantization
+    use_bitnet: bool = True  # Enable 1.58-bit BitNet quantization
+    bitnet_exclude: str = "token_embedding,lm_head"  # Layers to keep in full precision
+
     # Training
     initializer_range: float = 0.02
     gradient_checkpointing: bool = False
@@ -121,6 +125,31 @@ class ModelConfig:
             total += self.vocab_size * self.hidden_dim
         return total
 
+    def estimate_model_size(self) -> dict:
+        """Estimate model size in both FP16 and 1.58-bit BitNet."""
+        params = self.num_parameters()
+        embed_params = self.vocab_size * self.hidden_dim
+        if not self.tie_word_embeddings:
+            embed_params *= 2
+
+        quantizable = params - embed_params  # Embeddings stay full precision
+        fp16_bytes = params * 2
+        if self.use_bitnet:
+            # Quantizable params: ~2 bits each, embeddings: 16 bits
+            bitnet_bytes = (quantizable * 2 / 8) + (embed_params * 2)
+            bits_per_param = (bitnet_bytes * 8) / params
+        else:
+            bitnet_bytes = fp16_bytes
+            bits_per_param = 16.0
+
+        return {
+            "total_params": params,
+            "fp16_mb": fp16_bytes / (1024 * 1024),
+            "bitnet_mb": bitnet_bytes / (1024 * 1024),
+            "compression_ratio": fp16_bytes / max(bitnet_bytes, 1),
+            "avg_bits_per_param": bits_per_param,
+        }
+
     def save(self, path: str) -> None:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w") as f:
@@ -138,4 +167,5 @@ class ModelConfig:
             size = f"{params / 1e9:.1f}B"
         else:
             size = f"{params / 1e6:.0f}M"
-        return f"ModelConfig({size} params, {self.num_layers}L, {self.hidden_dim}D, {self.num_heads}H)"
+        bitnet_tag = ", BitNet 1.58b" if self.use_bitnet else ""
+        return f"ModelConfig({size} params, {self.num_layers}L, {self.hidden_dim}D, {self.num_heads}H{bitnet_tag})"

@@ -1,11 +1,13 @@
 # MOM Training Config - Small Model (~125M params)
 # Good starting point for single GPU training
+# Uses BitNet 1.58-bit: ~10x smaller model size
 
 model:
   preset: small          # 768D, 12L, 12H
   vocab_size: 32000
   max_seq_len: 2048
   use_flash_attention: true
+  use_bitnet: true       # 1.58-bit ternary weights {-1, 0, +1}
   gradient_checkpointing: false
 
 training:

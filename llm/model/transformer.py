@@ -8,6 +8,7 @@ Key architectural choices (aligned with LLaMA/Mistral family):
 - SwiGLU activation (better than GELU for language modeling)
 - Optional Flash Attention 2 support
 - Pre-norm architecture (norm before attention/FFN)
+- BitNet b1.58 ternary quantization (1.58 bits per weight)
 """
 
 import math
@@ -18,6 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .config import ModelConfig
+from .bitnet import BitLinear, replace_linear_with_bitlinear, quantize_model
 
 
 class RMSNorm(nn.Module):
@@ -187,6 +189,7 @@ class MOMTransformer(nn.Module):
     - GQA (Grouped Query Attention)
     - RMSNorm
     - SwiGLU activations
+    - BitNet b1.58 ternary quantization ({-1, 0, +1} weights, ~1.58 bits/param)
     - Optional gradient checkpointing
     - KV-cache for efficient autoregressive generation
     """
@@ -218,11 +221,18 @@ class MOMTransformer(nn.Module):
         # Initialize weights
         self.apply(self._init_weights)
 
+        # Apply BitNet 1.58-bit quantization if enabled
+        if config.use_bitnet:
+            exclude = set(config.bitnet_exclude.split(","))
+            replace_linear_with_bitlinear(self, exclude_names=exclude)
+
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, BitLinear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
 
@@ -278,6 +288,19 @@ class MOMTransformer(nn.Module):
             result["loss"] = loss
 
         return result
+
+    def quantize_for_inference(self) -> dict:
+        """Quantize all BitLinear layers to packed ternary format for inference.
+
+        After calling this, the model uses ~1.58 bits per weight parameter
+        (excluding embeddings and LM head which stay in full precision).
+        Inference uses only additions/subtractions instead of multiplications.
+
+        Returns quantization statistics.
+        """
+        stats = quantize_model(self)
+        self.eval()
+        return stats
 
     def num_parameters(self, only_trainable: bool = True) -> int:
         if only_trainable:

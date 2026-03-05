@@ -1,11 +1,13 @@
 # MOM Training Config - Medium Model (~350M params)
-# Requires 1-2 GPUs (24GB+ VRAM each)
+# With BitNet 1.58-bit: fits on single GPU (8GB+ VRAM)
+# ~10x compression: 350M params → ~85MB instead of ~700MB
 
 model:
   preset: medium         # 1024D, 24L, 16H
   vocab_size: 32000
   max_seq_len: 4096
   use_flash_attention: true
+  use_bitnet: true       # 1.58-bit ternary weights {-1, 0, +1}
   gradient_checkpointing: true
 
 training:

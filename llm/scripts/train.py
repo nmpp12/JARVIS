@@ -102,8 +102,14 @@ def main():
         model_config.use_flash_attention = model_cfg["use_flash_attention"]
     if "gradient_checkpointing" in model_cfg:
         model_config.gradient_checkpointing = model_cfg["gradient_checkpointing"]
+    if "use_bitnet" in model_cfg:
+        model_config.use_bitnet = model_cfg["use_bitnet"]
 
     print(f"\nModel: {model_config}")
+    if model_config.use_bitnet:
+        size_info = model_config.estimate_model_size()
+        print(f"  BitNet 1.58-bit enabled")
+        print(f"  FP16 size: {size_info['fp16_mb']:.1f} MB -> BitNet size: {size_info['bitnet_mb']:.1f} MB ({size_info['compression_ratio']:.1f}x compression)")
 
     # Create training config
     train_cfg = yaml_config.get("training", {})
