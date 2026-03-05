@@ -1,0 +1,676 @@
+"""
+ML/DL Knowledge Curator - Builds structured training datasets from multiple sources.
+
+Curates and formats knowledge from:
+- ArXiv papers (abstracts and key findings)
+- Textbook-style explanations
+- Code implementations with annotations
+- Mathematical derivations
+- Architecture descriptions
+- Training recipes and best practices
+
+Outputs JSONL files ready for tokenization and training.
+"""
+
+import json
+import os
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional
+
+
+@dataclass
+class KnowledgeEntry:
+    """A single knowledge entry for training."""
+    text: str
+    category: str
+    subcategory: str = ""
+    difficulty: str = "intermediate"  # beginner, intermediate, advanced, expert
+    source: str = ""
+    tags: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            "text": self.text,
+            "category": self.category,
+            "subcategory": self.subcategory,
+            "difficulty": self.difficulty,
+            "source": self.source,
+            "tags": self.tags,
+        }
+
+
+# Comprehensive ML/DL knowledge taxonomy
+KNOWLEDGE_TAXONOMY = {
+    "foundations": {
+        "linear_algebra": [
+            "vectors_matrices", "eigendecomposition", "svd",
+            "matrix_calculus", "tensor_operations",
+        ],
+        "calculus": [
+            "gradients", "chain_rule", "jacobians", "hessians",
+            "automatic_differentiation",
+        ],
+        "probability": [
+            "distributions", "bayesian_inference", "information_theory",
+            "sampling_methods", "graphical_models",
+        ],
+        "optimization": [
+            "convex_optimization", "gradient_descent", "constrained_optimization",
+            "stochastic_optimization", "second_order_methods",
+        ],
+    },
+    "machine_learning": {
+        "supervised": [
+            "linear_regression", "logistic_regression", "svm",
+            "decision_trees", "random_forests", "gradient_boosting",
+            "naive_bayes", "knn",
+        ],
+        "unsupervised": [
+            "kmeans", "dbscan", "hierarchical_clustering",
+            "pca", "tsne", "umap", "autoencoders",
+        ],
+        "theory": [
+            "bias_variance", "pac_learning", "vc_dimension",
+            "regularization", "cross_validation", "ensemble_methods",
+        ],
+    },
+    "deep_learning": {
+        "architectures": [
+            "mlp", "cnn", "rnn", "lstm", "gru",
+            "transformer", "vision_transformer", "mamba", "rwkv",
+        ],
+        "attention": [
+            "self_attention", "multi_head_attention", "cross_attention",
+            "flash_attention", "linear_attention", "grouped_query_attention",
+            "sliding_window_attention", "ring_attention",
+        ],
+        "normalization": [
+            "batch_norm", "layer_norm", "group_norm", "rms_norm",
+            "instance_norm",
+        ],
+        "training": [
+            "backpropagation", "adam_optimizer", "learning_rate_schedules",
+            "mixed_precision", "gradient_accumulation", "gradient_clipping",
+            "distributed_training", "fsdp", "deepspeed",
+        ],
+        "regularization": [
+            "dropout", "weight_decay", "label_smoothing",
+            "data_augmentation", "mixup", "cutmix",
+        ],
+    },
+    "large_language_models": {
+        "architectures": [
+            "gpt", "llama", "mistral", "mamba", "mixture_of_experts",
+            "encoder_decoder", "decoder_only", "prefix_lm",
+        ],
+        "training": [
+            "pretraining", "finetuning", "rlhf", "dpo",
+            "instruction_tuning", "constitutional_ai",
+        ],
+        "efficiency": [
+            "quantization", "pruning", "distillation",
+            "lora", "qlora", "adapters", "sparse_attention",
+            "kv_cache", "speculative_decoding",
+        ],
+        "tokenization": [
+            "bpe", "sentencepiece", "wordpiece", "unigram",
+        ],
+        "positional_encoding": [
+            "sinusoidal", "learned", "rope", "alibi", "relative",
+        ],
+    },
+    "generative_models": {
+        "diffusion": [
+            "ddpm", "ddim", "stable_diffusion", "flow_matching",
+            "consistency_models", "rectified_flow",
+        ],
+        "gan": [
+            "vanilla_gan", "dcgan", "stylegan", "wgan",
+            "conditional_gan", "progressive_gan",
+        ],
+        "vae": [
+            "vanilla_vae", "beta_vae", "vq_vae", "hierarchical_vae",
+        ],
+    },
+    "reinforcement_learning": {
+        "fundamentals": [
+            "mdp", "bellman_equation", "q_learning", "policy_gradient",
+            "actor_critic", "td_learning",
+        ],
+        "advanced": [
+            "ppo", "sac", "ddpg", "a3c", "muzero",
+            "model_based_rl", "offline_rl", "multi_agent_rl",
+        ],
+    },
+    "systems": {
+        "hardware": [
+            "gpu_architecture", "tensor_cores", "memory_hierarchy",
+            "tpu", "distributed_systems", "interconnects",
+        ],
+        "frameworks": [
+            "pytorch_internals", "jax", "triton", "cuda_programming",
+            "compiler_optimizations", "graph_optimization",
+        ],
+        "scaling": [
+            "scaling_laws", "chinchilla", "data_parallelism",
+            "tensor_parallelism", "pipeline_parallelism",
+            "expert_parallelism",
+        ],
+    },
+}
+
+
+class KnowledgeCurator:
+    """Curates and generates ML/DL training data."""
+
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        self.entries: List[KnowledgeEntry] = []
+
+    def add_entry(self, entry: KnowledgeEntry) -> None:
+        self.entries.append(entry)
+
+    def add_concept_explanation(
+        self,
+        concept: str,
+        explanation: str,
+        category: str,
+        subcategory: str = "",
+        difficulty: str = "intermediate",
+        code_example: str = "",
+        math_notation: str = "",
+    ) -> None:
+        """Add a structured concept explanation."""
+        parts = [f"<concept>{concept}</concept>\n\n{explanation}"]
+
+        if math_notation:
+            parts.append(f"\n\n<equation>{math_notation}</equation>")
+
+        if code_example:
+            parts.append(f"\n\n<code>\n{code_example}\n</code>")
+
+        text = "".join(parts)
+        self.add_entry(KnowledgeEntry(
+            text=text,
+            category=category,
+            subcategory=subcategory,
+            difficulty=difficulty,
+            tags=[concept],
+        ))
+
+    def add_paper_summary(
+        self,
+        title: str,
+        authors: str,
+        abstract: str,
+        key_contributions: List[str],
+        methodology: str = "",
+        results: str = "",
+        category: str = "deep_learning",
+    ) -> None:
+        """Add a research paper summary."""
+        contributions = "\n".join(f"- {c}" for c in key_contributions)
+        parts = [
+            f"<paper>",
+            f"Title: {title}",
+            f"Authors: {authors}",
+            f"\nAbstract: {abstract}",
+            f"\nKey Contributions:\n{contributions}",
+        ]
+        if methodology:
+            parts.append(f"\nMethodology: {methodology}")
+        if results:
+            parts.append(f"\nResults: {results}")
+        parts.append("</paper>")
+
+        self.add_entry(KnowledgeEntry(
+            text="\n".join(parts),
+            category=category,
+            subcategory="papers",
+            difficulty="advanced",
+            source=title,
+            tags=[title],
+        ))
+
+    def add_algorithm(
+        self,
+        name: str,
+        description: str,
+        pseudocode: str,
+        implementation: str = "",
+        complexity: str = "",
+        category: str = "machine_learning",
+    ) -> None:
+        """Add an algorithm with pseudocode and implementation."""
+        parts = [
+            f"<algorithm>{name}</algorithm>",
+            f"\n{description}",
+            f"\nPseudocode:\n```\n{pseudocode}\n```",
+        ]
+        if implementation:
+            parts.append(f"\n<code>\n{implementation}\n</code>")
+        if complexity:
+            parts.append(f"\nComplexity: {complexity}")
+
+        self.add_entry(KnowledgeEntry(
+            text="\n".join(parts),
+            category=category,
+            subcategory="algorithms",
+            difficulty="advanced",
+            tags=[name],
+        ))
+
+    def add_architecture(
+        self,
+        name: str,
+        description: str,
+        components: List[str],
+        implementation: str = "",
+        category: str = "deep_learning",
+    ) -> None:
+        """Add a neural network architecture description."""
+        components_text = "\n".join(f"- {c}" for c in components)
+        parts = [
+            f"<architecture>{name}</architecture>",
+            f"\n{description}",
+            f"\nComponents:\n{components_text}",
+        ]
+        if implementation:
+            parts.append(f"\n<code>\n{implementation}\n</code>")
+
+        self.add_entry(KnowledgeEntry(
+            text="\n".join(parts),
+            category=category,
+            subcategory="architectures",
+            difficulty="advanced",
+            tags=[name],
+        ))
+
+    def generate_seed_knowledge(self) -> None:
+        """Generate comprehensive seed training data covering the ML/DL taxonomy."""
+        self._generate_foundations()
+        self._generate_deep_learning()
+        self._generate_llm_knowledge()
+        self._generate_training_recipes()
+        self._generate_systems_knowledge()
+
+    def _generate_foundations(self) -> None:
+        """Generate foundational ML/math knowledge."""
+        self.add_concept_explanation(
+            concept="Gradient Descent",
+            explanation=(
+                "Gradient descent is the fundamental optimization algorithm in machine learning. "
+                "It iteratively updates parameters in the direction of steepest descent of the "
+                "loss function. Given parameters θ and learning rate α, the update rule is: "
+                "θ_{t+1} = θ_t - α · ∇L(θ_t). Variants include Stochastic GD (SGD), which "
+                "uses random mini-batches for efficiency, and momentum-based methods like Adam "
+                "which adapt the learning rate per-parameter using first and second moment estimates."
+            ),
+            category="foundations",
+            subcategory="optimization",
+            difficulty="beginner",
+            math_notation="θ_{t+1} = θ_t - α · ∇_θ L(θ_t)",
+            code_example=(
+                "import torch\n"
+                "import torch.nn as nn\n\n"
+                "model = nn.Linear(10, 1)\n"
+                "optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)\n\n"
+                "for epoch in range(100):\n"
+                "    output = model(x)\n"
+                "    loss = nn.functional.mse_loss(output, y)\n"
+                "    optimizer.zero_grad()\n"
+                "    loss.backward()  # Compute gradients\n"
+                "    optimizer.step()  # Update parameters"
+            ),
+        )
+
+        self.add_concept_explanation(
+            concept="Backpropagation",
+            explanation=(
+                "Backpropagation is the algorithm for computing gradients in neural networks via "
+                "the chain rule of calculus. During the forward pass, intermediate activations are "
+                "stored. During the backward pass, gradients flow from the loss backward through "
+                "each layer. For a composition f(g(x)), the chain rule gives: "
+                "∂f/∂x = (∂f/∂g)(∂g/∂x). Modern frameworks implement this via computational "
+                "graphs and automatic differentiation (autograd). Reverse-mode AD (backprop) is "
+                "efficient when outputs << inputs, which is typical in neural networks where "
+                "we compute a scalar loss w.r.t. millions of parameters."
+            ),
+            category="foundations",
+            subcategory="calculus",
+            difficulty="intermediate",
+            math_notation="∂L/∂w_i = ∂L/∂a_n · ∂a_n/∂a_{n-1} · ... · ∂a_{i+1}/∂w_i",
+        )
+
+        self.add_concept_explanation(
+            concept="Bias-Variance Tradeoff",
+            explanation=(
+                "The bias-variance tradeoff is a fundamental concept in statistical learning. "
+                "The expected prediction error can be decomposed as: "
+                "E[(y - f̂(x))²] = Bias²(f̂) + Var(f̂) + σ². "
+                "Bias measures systematic errors from model assumptions (underfitting). "
+                "Variance measures sensitivity to training data fluctuations (overfitting). "
+                "Irreducible error σ² is noise inherent in the data. Simple models have high "
+                "bias, low variance. Complex models have low bias, high variance. The sweet "
+                "spot minimizes total error. Modern deep learning challenges this: very large "
+                "models can achieve low bias AND low variance through implicit regularization "
+                "and the double descent phenomenon."
+            ),
+            category="machine_learning",
+            subcategory="theory",
+            difficulty="intermediate",
+        )
+
+    def _generate_deep_learning(self) -> None:
+        """Generate deep learning architecture knowledge."""
+        self.add_architecture(
+            name="Transformer",
+            description=(
+                "The Transformer architecture, introduced in 'Attention Is All You Need' "
+                "(Vaswani et al., 2017), replaced recurrence with self-attention for sequence "
+                "modeling. It processes all positions in parallel, achieving O(1) sequential "
+                "operations vs O(n) for RNNs. The key innovation is Multi-Head Self-Attention, "
+                "which computes attention weights between all pairs of positions. Combined with "
+                "positional encodings, feedforward networks, residual connections, and layer "
+                "normalization, this architecture became the foundation for GPT, BERT, and "
+                "virtually all modern language models."
+            ),
+            components=[
+                "Multi-Head Self-Attention: Q, K, V projections with scaled dot-product attention",
+                "Position-wise Feed-Forward Network: Two linear layers with activation (ReLU/GELU/SwiGLU)",
+                "Residual Connections: x + Sublayer(x) for gradient flow",
+                "Layer Normalization: Normalizes across feature dimension",
+                "Positional Encoding: Sinusoidal or learned embeddings (modern: RoPE, ALiBi)",
+            ],
+            implementation=(
+                "import torch\n"
+                "import torch.nn as nn\n"
+                "import math\n\n"
+                "class MultiHeadAttention(nn.Module):\n"
+                "    def __init__(self, d_model, num_heads):\n"
+                "        super().__init__()\n"
+                "        self.d_k = d_model // num_heads\n"
+                "        self.num_heads = num_heads\n"
+                "        self.W_q = nn.Linear(d_model, d_model)\n"
+                "        self.W_k = nn.Linear(d_model, d_model)\n"
+                "        self.W_v = nn.Linear(d_model, d_model)\n"
+                "        self.W_o = nn.Linear(d_model, d_model)\n\n"
+                "    def forward(self, x, mask=None):\n"
+                "        B, T, C = x.shape\n"
+                "        q = self.W_q(x).view(B, T, self.num_heads, self.d_k).transpose(1, 2)\n"
+                "        k = self.W_k(x).view(B, T, self.num_heads, self.d_k).transpose(1, 2)\n"
+                "        v = self.W_v(x).view(B, T, self.num_heads, self.d_k).transpose(1, 2)\n"
+                "        scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.d_k)\n"
+                "        if mask is not None:\n"
+                "            scores = scores.masked_fill(mask == 0, float('-inf'))\n"
+                "        attn = torch.softmax(scores, dim=-1)\n"
+                "        out = (attn @ v).transpose(1, 2).contiguous().view(B, T, C)\n"
+                "        return self.W_o(out)"
+            ),
+        )
+
+        self.add_concept_explanation(
+            concept="Rotary Positional Embeddings (RoPE)",
+            explanation=(
+                "RoPE encodes positional information by rotating the query and key vectors "
+                "in the attention mechanism. Unlike absolute positional embeddings, RoPE "
+                "naturally captures relative positions: the dot product between rotated q and k "
+                "depends only on their relative distance, not absolute position. This enables "
+                "better length generalization. RoPE applies a rotation matrix R_θ,m to each "
+                "pair of dimensions, where θ is a frequency and m is the position. The rotation "
+                "frequencies follow a geometric sequence: θ_i = 10000^(-2i/d), giving different "
+                "dimensions different 'wavelengths' to capture patterns at different scales."
+            ),
+            category="deep_learning",
+            subcategory="attention",
+            difficulty="advanced",
+            math_notation="R_θ,m · q = [q_1 cos(mθ) - q_2 sin(mθ), q_1 sin(mθ) + q_2 cos(mθ)]",
+        )
+
+        self.add_concept_explanation(
+            concept="Flash Attention",
+            explanation=(
+                "Flash Attention (Dao et al., 2022) is an IO-aware exact attention algorithm "
+                "that reduces memory usage from O(N²) to O(N) while being 2-4x faster than "
+                "standard attention. The key insight is that the attention computation is "
+                "memory-bandwidth bound, not compute-bound. Flash Attention tiles the Q, K, V "
+                "matrices into blocks that fit in SRAM (fast on-chip memory), computing attention "
+                "block-by-block and accumulating results using the online softmax trick. This "
+                "avoids materializing the full N×N attention matrix in HBM (slow global memory). "
+                "Flash Attention 2 further optimizes by reducing non-matmul FLOPs and improving "
+                "parallelism across the sequence dimension."
+            ),
+            category="deep_learning",
+            subcategory="attention",
+            difficulty="expert",
+        )
+
+        self.add_concept_explanation(
+            concept="Grouped Query Attention (GQA)",
+            explanation=(
+                "GQA is a compromise between Multi-Head Attention (MHA) and Multi-Query "
+                "Attention (MQA). In MHA, each attention head has its own Q, K, V projections. "
+                "In MQA, all heads share a single K and V (but have separate Q). GQA groups "
+                "heads and shares K, V within each group. With G groups and H heads, each group "
+                "of H/G query heads shares one K, V head. GQA reduces KV-cache size by G/H "
+                "compared to MHA while maintaining most of the quality. LLaMA 2 70B and Mistral "
+                "use GQA. It's particularly beneficial during inference where KV-cache memory "
+                "is the bottleneck for long sequences."
+            ),
+            category="large_language_models",
+            subcategory="efficiency",
+            difficulty="advanced",
+        )
+
+    def _generate_llm_knowledge(self) -> None:
+        """Generate LLM-specific knowledge."""
+        self.add_paper_summary(
+            title="Attention Is All You Need",
+            authors="Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin",
+            abstract=(
+                "We propose a new simple network architecture, the Transformer, based solely "
+                "on attention mechanisms, dispensing with recurrence and convolutions entirely. "
+                "The Transformer allows for significantly more parallelization and can reach "
+                "a new state of the art in translation quality after being trained for as "
+                "little as twelve hours on eight P100 GPUs."
+            ),
+            key_contributions=[
+                "Self-attention mechanism replacing recurrence for sequence modeling",
+                "Multi-head attention for capturing different relationship types",
+                "Positional encoding using sinusoidal functions",
+                "Demonstrated superior parallelization and training efficiency",
+            ],
+            category="deep_learning",
+        )
+
+        self.add_paper_summary(
+            title="Scaling Laws for Neural Language Models",
+            authors="Kaplan, McCandlish, Henighan, Brown, Chess, Child, Gray, Radford, Wu, Amodei",
+            abstract=(
+                "We study empirical scaling laws for language model performance on the "
+                "cross-entropy loss. The loss scales as a power-law with model size, dataset "
+                "size, and the amount of compute used for training, with some trends spanning "
+                "more than seven orders of magnitude."
+            ),
+            key_contributions=[
+                "Power-law relationship between loss and model size/data/compute",
+                "Optimal allocation of compute budget between model size and data",
+                "Larger models are more sample efficient",
+                "Performance is a smooth function of scale with predictable trends",
+            ],
+            category="large_language_models",
+        )
+
+        self.add_concept_explanation(
+            concept="Low-Rank Adaptation (LoRA)",
+            explanation=(
+                "LoRA is a parameter-efficient fine-tuning method that freezes the pretrained "
+                "model weights and injects trainable rank-decomposition matrices into each layer. "
+                "For a pretrained weight matrix W ∈ R^{d×k}, LoRA adds ΔW = BA where "
+                "B ∈ R^{d×r} and A ∈ R^{r×k} with rank r << min(d,k). During fine-tuning, "
+                "only A and B are updated. This reduces trainable parameters by 10,000x while "
+                "matching full fine-tuning quality. The key insight is that weight updates during "
+                "fine-tuning have a low intrinsic rank. QLoRA further quantizes the base model "
+                "to 4-bit, enabling fine-tuning of 65B models on a single 48GB GPU."
+            ),
+            category="large_language_models",
+            subcategory="efficiency",
+            difficulty="advanced",
+            math_notation="h = Wx + BAx, where B ∈ R^{d×r}, A ∈ R^{r×k}, r << min(d,k)",
+            code_example=(
+                "import torch\n"
+                "import torch.nn as nn\n\n"
+                "class LoRALinear(nn.Module):\n"
+                "    def __init__(self, in_features, out_features, rank=8, alpha=16):\n"
+                "        super().__init__()\n"
+                "        self.linear = nn.Linear(in_features, out_features, bias=False)\n"
+                "        self.linear.weight.requires_grad = False  # Freeze base weights\n"
+                "        self.lora_A = nn.Parameter(torch.randn(rank, in_features) * 0.01)\n"
+                "        self.lora_B = nn.Parameter(torch.zeros(out_features, rank))\n"
+                "        self.scaling = alpha / rank\n\n"
+                "    def forward(self, x):\n"
+                "        base_out = self.linear(x)\n"
+                "        lora_out = (x @ self.lora_A.T @ self.lora_B.T) * self.scaling\n"
+                "        return base_out + lora_out"
+            ),
+        )
+
+    def _generate_training_recipes(self) -> None:
+        """Generate practical training recipes and best practices."""
+        self.add_entry(KnowledgeEntry(
+            text=(
+                "Training Recipe: Large Language Model Pre-training\n\n"
+                "1. Data Preparation:\n"
+                "   - Curate diverse, high-quality text corpus (web, books, code, papers)\n"
+                "   - Deduplicate at document and paragraph level (MinHash, exact matching)\n"
+                "   - Filter low-quality content (perplexity filtering, classifier-based)\n"
+                "   - Train BPE tokenizer on representative sample (32K-100K vocab)\n\n"
+                "2. Model Architecture:\n"
+                "   - Decoder-only transformer with pre-norm (RMSNorm)\n"
+                "   - RoPE positional embeddings for length generalization\n"
+                "   - GQA for efficient KV-cache during inference\n"
+                "   - SwiGLU activation in FFN (intermediate_dim ≈ 2.7 × hidden_dim)\n"
+                "   - No bias terms in linear layers\n\n"
+                "3. Training Configuration:\n"
+                "   - AdamW optimizer: β1=0.9, β2=0.95, ε=1e-8\n"
+                "   - Weight decay: 0.1 (applied to non-embedding, non-norm parameters)\n"
+                "   - Learning rate: peak 3e-4 (scale with sqrt(batch_size))\n"
+                "   - Warmup: 2000 steps linear warmup\n"
+                "   - Schedule: Cosine decay to 10% of peak LR\n"
+                "   - Batch size: Ramp from small to large (improves stability)\n"
+                "   - Sequence length: 2048-8192 tokens\n"
+                "   - Gradient clipping: max_norm=1.0\n"
+                "   - Mixed precision: BF16 (preferred over FP16 for stability)\n\n"
+                "4. Scaling Strategy:\n"
+                "   - Follow Chinchilla scaling: tokens ≈ 20 × parameters\n"
+                "   - Use FSDP or DeepSpeed ZeRO-3 for distributed training\n"
+                "   - Gradient accumulation for effective large batch sizes\n"
+                "   - Activation checkpointing for memory efficiency\n\n"
+                "5. Monitoring:\n"
+                "   - Track training loss, validation loss, gradient norms\n"
+                "   - Monitor for loss spikes (reduce LR temporarily if severe)\n"
+                "   - Evaluate perplexity on held-out sets periodically\n"
+                "   - Check for degenerate outputs (repetition, collapse)\n"
+            ),
+            category="large_language_models",
+            subcategory="training",
+            difficulty="expert",
+            tags=["training_recipe", "pretraining", "best_practices"],
+        ))
+
+        self.add_entry(KnowledgeEntry(
+            text=(
+                "Mixed Precision Training Best Practices:\n\n"
+                "Mixed precision training uses lower-precision (FP16/BF16) for most operations "
+                "while maintaining FP32 master weights for numerical stability.\n\n"
+                "BF16 vs FP16:\n"
+                "- BF16: Same exponent range as FP32 (8 bits), less mantissa precision (7 bits)\n"
+                "- FP16: Smaller exponent range (5 bits), more mantissa precision (10 bits)\n"
+                "- BF16 is preferred for training because it avoids overflow/underflow issues\n"
+                "- FP16 requires loss scaling; BF16 does not\n\n"
+                "<code>\n"
+                "import torch\n"
+                "from torch.cuda.amp import autocast, GradScaler\n\n"
+                "# FP16 with loss scaling\n"
+                "scaler = GradScaler()\n"
+                "with autocast(dtype=torch.float16):\n"
+                "    output = model(input_ids)\n"
+                "    loss = criterion(output, labels)\n"
+                "scaler.scale(loss).backward()\n"
+                "scaler.step(optimizer)\n"
+                "scaler.update()\n\n"
+                "# BF16 (simpler, no scaler needed)\n"
+                "with autocast(dtype=torch.bfloat16):\n"
+                "    output = model(input_ids)\n"
+                "    loss = criterion(output, labels)\n"
+                "loss.backward()\n"
+                "optimizer.step()\n"
+                "</code>"
+            ),
+            category="deep_learning",
+            subcategory="training",
+            difficulty="advanced",
+            tags=["mixed_precision", "bf16", "fp16"],
+        ))
+
+    def _generate_systems_knowledge(self) -> None:
+        """Generate systems-level ML knowledge."""
+        self.add_concept_explanation(
+            concept="GPU Memory Hierarchy and Training Optimization",
+            explanation=(
+                "Understanding GPU memory is critical for efficient training. Modern GPUs "
+                "(A100, H100) have: SRAM (~20MB, ~19 TB/s), HBM (40-80GB, ~2-3 TB/s), and "
+                "system RAM via PCIe (~64 GB/s). Most deep learning operations are memory-bandwidth "
+                "bound, not compute-bound. Key optimizations:\n\n"
+                "1. Activation Checkpointing: Trade compute for memory by recomputing activations "
+                "during backward pass instead of storing them. Reduces memory from O(L) to O(√L).\n\n"
+                "2. Gradient Accumulation: Simulate larger batch sizes by accumulating gradients "
+                "over multiple micro-batches before updating weights.\n\n"
+                "3. FSDP (Fully Sharded Data Parallel): Shards model parameters, gradients, and "
+                "optimizer states across GPUs. Each GPU only stores 1/N of the model.\n\n"
+                "4. Tensor Parallelism: Splits individual layers across GPUs (e.g., splitting "
+                "attention heads or FFN columns across devices).\n\n"
+                "5. Pipeline Parallelism: Assigns different layers to different GPUs, processing "
+                "micro-batches in pipeline fashion."
+            ),
+            category="systems",
+            subcategory="hardware",
+            difficulty="expert",
+        )
+
+    def save_dataset(self, filename: str = "ml_knowledge.jsonl") -> str:
+        """Save all entries to JSONL file."""
+        output_path = os.path.join(self.output_dir, filename)
+        with open(output_path, "w") as f:
+            for entry in self.entries:
+                f.write(json.dumps(entry.to_dict()) + "\n")
+        print(f"Saved {len(self.entries)} entries to {output_path}")
+        return output_path
+
+    def load_external_data(self, path: str) -> None:
+        """Load additional training data from JSONL files."""
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                self.add_entry(KnowledgeEntry(**data))
+
+    def get_stats(self) -> Dict:
+        """Get dataset statistics."""
+        categories = {}
+        difficulties = {}
+        for entry in self.entries:
+            categories[entry.category] = categories.get(entry.category, 0) + 1
+            difficulties[entry.difficulty] = difficulties.get(entry.difficulty, 0) + 1
+
+        return {
+            "total_entries": len(self.entries),
+            "categories": categories,
+            "difficulties": difficulties,
+            "total_chars": sum(len(e.text) for e in self.entries),
+        }
