@@ -1,0 +1,28 @@
+# MOM (Master of Models) - LLM Dependencies
+
+# Core ML Framework
+torch>=2.1.0
+numpy>=1.24.0
+
+# Tokenization
+sentencepiece>=0.1.99
+tiktoken>=0.5.0
+
+# Training utilities
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# Logging (optional)
+wandb>=0.15.0
+tensorboard>=2.14.0
+
+# Inference server
+flask>=3.0.0
+
+# Data processing
+datasets>=2.14.0
+jsonlines>=4.0.0
+
+# CUDA optimization (optional, install separately)
+# flash-attn>=2.3.0  # pip install flash-attn --no-build-isolation
+# triton>=2.1.0
