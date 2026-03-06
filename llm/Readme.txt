@@ -66,3 +66,62 @@ TABS
 - Chat      : Talk to the loaded LLM model
 - Code      : Write and run Python code in a sandboxed environment
 - Settings  : Load/unload model checkpoints and adjust generation parameters
+
+
+CREATIVE MODE
+-------------
+MOM includes a creativity engine that helps the model generate novel code
+solutions — approaches that go beyond obvious, first-thing-you'd-try patterns.
+
+How it works:
+
+  1. Advanced Sampling Strategies (in the generator)
+     - Typical Sampling    : Picks tokens that are representative of the
+                             distribution rather than just the most likely.
+                             Produces output that's natural and surprising.
+     - Contrastive Search  : Balances confidence with diversity. Prevents
+                             repetitive output while staying coherent.
+     - Adaptive Temperature: Automatically adjusts randomness — precise when
+                             the model is confident, exploratory when it's not.
+     - Creative (hybrid)   : Combines all three with a novelty bonus that
+                             discourages repeating recently used tokens.
+
+  2. Creativity Engine (concept blending + exploration)
+     - Cross-Domain Blending : Injects inspiration from biology, physics,
+                               music theory, architecture, game theory, and
+                               more. Forces the model to find structural
+                               analogies rather than copy-pasting patterns.
+     - Exploration Strategies: Reframes problems via inversion, analogy,
+                               constraint addition, elimination, and more.
+     - Multi-Perspective     : Solves the problem from 3 expert viewpoints
+                               (e.g. mathematician, hacker, minimalist)
+                               then synthesizes the best ideas.
+     - Novelty Scoring       : Scores generated code for originality and
+                               automatically re-prompts if the solution is
+                               too conventional.
+
+  3. Creative Code Loop
+     The code generator can run a creative_loop() that:
+     - Enhances the prompt with blending + exploration scaffolding
+     - Generates code with creative sampling
+     - Scores each solution for novelty
+     - If the code works but is too conventional, pushes for a more
+       creative rewrite automatically
+
+Usage (from Python):
+
+    from llm.inference import CreativityEngine, TextGenerator
+    from llm.tools import CodeGenerator
+
+    engine = CreativityEngine()
+    codegen = CodeGenerator(creative_mode=True, creativity=engine)
+
+    # Enhance any coding prompt with creative scaffolding
+    prompt = engine.enhance_prompt("Write a function to detect cycles in a graph")
+
+    # Generate with creative sampling
+    generator = TextGenerator.from_checkpoint("path/to/model")
+    result = generator.generate(prompt, sampling_strategy="creative")
+
+Sampling strategies can also be selected in the Settings panel:
+    standard | typical | contrastive | adaptive | creative

@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Dict, Any
 
 from .sandbox import Sandbox, SandboxConfig, SandboxResult
+from ..inference.creativity import CreativityEngine, CreativityConfig
 
 
 @dataclass
@@ -161,6 +162,34 @@ The code execution produced the following result:
 {instruction}
 """
 
+CREATIVE_SYSTEM_PROMPT = """
+
+## Creative Coding Mode
+
+You are in CREATIVE mode. Your goal is to write code that goes beyond
+conventional approaches:
+
+1. Before coding, briefly consider at least 2 different approaches.
+   Pick the one that is more novel or elegant, not just the first one
+   that comes to mind.
+
+2. Look for cross-domain inspiration: can patterns from mathematics,
+   biology, music theory, or other fields inform your approach?
+
+3. Prefer:
+   - Functional composition over imperative loops
+   - Generators and lazy evaluation over eager list building
+   - Pattern matching and structural decomposition over if/else chains
+   - Mathematical transforms over brute-force iteration
+   - Recursive elegance over iterative complexity (when it's clearer)
+
+4. After writing your solution, ask yourself: "Is there a way to solve
+   this that would surprise an experienced programmer?" If yes, use that.
+
+5. Avoid the obvious solution. If the first approach everyone would try
+   is a for-loop with an accumulator, find a different way.
+"""
+
 
 class CodeGenerator:
     """Manages the code-generate-execute-refine loop.
@@ -188,16 +217,22 @@ class CodeGenerator:
         auto_execute: bool = True,
         validate_before_run: bool = True,
         max_iterations: int = 5,
+        creativity: Optional[CreativityEngine] = None,
+        creative_mode: bool = False,
     ):
         self.sandbox = sandbox or Sandbox()
         self.auto_execute = auto_execute
         self.validate_before_run = validate_before_run
         self.max_iterations = max_iterations
         self.execution_history: List[Dict[str, Any]] = []
+        self.creativity = creativity or CreativityEngine()
+        self.creative_mode = creative_mode
 
     @property
     def system_prompt(self) -> str:
         """Return the system prompt that teaches the model to generate code."""
+        if self.creative_mode:
+            return CODE_SYSTEM_PROMPT + CREATIVE_SYSTEM_PROMPT
         return CODE_SYSTEM_PROMPT
 
     def extract(self, model_output: str) -> List[CodeBlock]:
@@ -367,3 +402,80 @@ class CodeGenerator:
     def clear_history(self) -> None:
         """Clear execution history."""
         self.execution_history.clear()
+
+    def creative_loop(
+        self,
+        generate_fn,
+        initial_prompt: str,
+        novelty_threshold: float = 0.4,
+    ) -> List[Dict[str, Any]]:
+        """Creative code generation loop with novelty scoring.
+
+        Like interactive_loop, but enhances prompts with creativity techniques
+        and scores each solution for novelty. If a solution scores below the
+        threshold, it automatically asks the model to try a more creative approach.
+
+        Args:
+            generate_fn: Function that takes a prompt and returns model output
+            initial_prompt: The user's coding request
+            novelty_threshold: Minimum novelty score to accept (0.0-1.0)
+
+        Returns:
+            List of conversation turns with creativity metadata
+        """
+        turns = []
+        creative_prompt = self.creativity.enhance_prompt(initial_prompt)
+        current_prompt = creative_prompt
+
+        for iteration in range(self.max_iterations):
+            model_output = generate_fn(current_prompt)
+            results, followup = self.run_conversation_turn(model_output)
+
+            # Score each code block for novelty
+            novelty_scores = []
+            for block, result in results:
+                score, suggestions = self.creativity.score(block.code)
+                self.creativity.record(block.code)
+                novelty_scores.append({
+                    "score": score,
+                    "suggestions": suggestions,
+                })
+
+            turn = {
+                "iteration": iteration,
+                "prompt": current_prompt,
+                "model_output": model_output,
+                "code_blocks": [b.to_dict() for b, _ in results],
+                "results": [r.to_dict() for _, r in results],
+                "novelty": novelty_scores,
+                "creative_mode": True,
+            }
+            turns.append(turn)
+
+            # All blocks succeeded and are novel enough
+            if results and all(r.success for _, r in results):
+                avg_novelty = (
+                    sum(n["score"] for n in novelty_scores) / len(novelty_scores)
+                    if novelty_scores else 1.0
+                )
+                if avg_novelty >= novelty_threshold:
+                    break
+
+                # Code works but isn't creative enough — push for novelty
+                low_blocks = [
+                    (results[i][0], novelty_scores[i])
+                    for i in range(len(results))
+                    if novelty_scores[i]["score"] < novelty_threshold
+                ]
+                if low_blocks:
+                    block, ndata = low_blocks[0]
+                    current_prompt = self.creativity.refine_prompt(
+                        initial_prompt, block.code, ndata["suggestions"]
+                    )
+                    continue
+
+            # Code failed — use standard refinement
+            if followup:
+                current_prompt = followup
+
+        return turns
