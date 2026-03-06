@@ -8,6 +8,8 @@ Supports:
 - Standard text and chat completions
 - Continuous batching with paged KV-cache
 - Speculative decoding mode
+- Code execution with sandboxed environment
+- Tool-use / function-calling interface
 - Optimization statistics endpoint
 """
 
@@ -19,6 +21,9 @@ from collections import deque
 from typing import Optional, List
 
 from .generator import TextGenerator
+from ..tools.sandbox import Sandbox, SandboxConfig
+from ..tools.code_generator import CodeGenerator
+from ..tools.tool_registry import ToolRegistry
 
 
 class ContinuousBatcher:
@@ -70,12 +75,21 @@ class ContinuousBatcher:
             return dict(self.stats)
 
 
-def create_app(generator: TextGenerator, use_continuous_batching: bool = False):
+def create_app(
+    generator: TextGenerator,
+    use_continuous_batching: bool = False,
+    enable_code_execution: bool = True,
+    sandbox_config: Optional[SandboxConfig] = None,
+):
     """Create a Flask inference server.
 
     Provides endpoints:
     - POST /v1/chat/completions - Chat completion (OpenAI compatible)
     - POST /v1/completions - Text completion
+    - POST /v1/code/execute - Execute code in sandbox
+    - POST /v1/code/generate - Generate and optionally execute code
+    - POST /v1/tools/call - Invoke a registered tool
+    - GET /v1/tools - List available tools
     - GET /v1/models - List available models
     - GET /v1/stats - Optimization and serving statistics
     - GET /health - Health check
@@ -84,6 +98,11 @@ def create_app(generator: TextGenerator, use_continuous_batching: bool = False):
 
     app = Flask(__name__)
     batcher = ContinuousBatcher(generator) if use_continuous_batching else None
+
+    # Code execution infrastructure
+    sandbox = Sandbox(sandbox_config or SandboxConfig()) if enable_code_execution else None
+    codegen = CodeGenerator(sandbox=sandbox) if sandbox else None
+    tool_registry = ToolRegistry(sandbox=sandbox) if sandbox else None
 
     @app.route("/health", methods=["GET"])
     def health():
@@ -224,6 +243,126 @@ def create_app(generator: TextGenerator, use_continuous_batching: bool = False):
             },
         })
 
+    # --- Code execution endpoints ---
+
+    @app.route("/v1/code/execute", methods=["POST"])
+    def execute_code():
+        """Execute code in the sandbox."""
+        if not sandbox:
+            return jsonify({"error": "Code execution is disabled"}), 400
+
+        data = request.json
+        code = data.get("code", "")
+        language = data.get("language", "python")
+        stdin_data = data.get("stdin", None)
+
+        if not code:
+            return jsonify({"error": "No code provided"}), 400
+
+        result = sandbox.execute(code=code, language=language, stdin_data=stdin_data)
+        return jsonify(result.to_dict())
+
+    @app.route("/v1/code/generate", methods=["POST"])
+    def generate_and_execute():
+        """Generate code from a prompt, then optionally execute it.
+
+        The model generates a response. Any code blocks found in the
+        response are extracted and (if auto_execute is true) run in
+        the sandbox. Results are returned alongside the model output.
+        """
+        if not codegen:
+            return jsonify({"error": "Code execution is disabled"}), 400
+
+        data = request.json
+        prompt = data.get("prompt", "")
+        max_tokens = data.get("max_tokens", 512)
+        temperature = data.get("temperature", 0.7)
+        auto_execute = data.get("auto_execute", True)
+        max_iterations = data.get("max_iterations", 3)
+
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        # Prepend coding system prompt
+        full_prompt = f"System: {codegen.system_prompt}\n\nUser: {prompt}\n\nAssistant:"
+
+        # Generate model response
+        model_output = generator.generate(
+            prompt=full_prompt,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        response = {
+            "id": f"codegen-{uuid.uuid4().hex[:8]}",
+            "model_output": model_output,
+            "code_blocks": [],
+            "execution_results": [],
+        }
+
+        # Extract and execute code blocks
+        blocks = codegen.extract(model_output)
+        response["code_blocks"] = [b.to_dict() for b in blocks]
+
+        if blocks and auto_execute:
+            results = codegen.execute_blocks(blocks)
+            response["execution_results"] = [
+                {"code": b.to_dict(), "result": r.to_dict()}
+                for b, r in results
+            ]
+
+            # If there were errors and iterations are allowed, refine
+            if max_iterations > 1 and any(not r.success for _, r in results):
+                followup = codegen.build_result_prompt(results)
+                refine_prompt = f"{full_prompt}{model_output}\n\n{followup}\n\nAssistant:"
+                for iteration in range(1, max_iterations):
+                    refined_output = generator.generate(
+                        prompt=refine_prompt,
+                        max_new_tokens=max_tokens,
+                        temperature=temperature,
+                    )
+                    refined_blocks = codegen.extract(refined_output)
+                    if not refined_blocks:
+                        break
+                    refined_results = codegen.execute_blocks(refined_blocks)
+                    response["execution_results"].extend([
+                        {"code": b.to_dict(), "result": r.to_dict(), "iteration": iteration}
+                        for b, r in refined_results
+                    ])
+                    if all(r.success for _, r in refined_results):
+                        response["model_output"] = refined_output
+                        response["code_blocks"] = [b.to_dict() for b in refined_blocks]
+                        break
+                    followup = codegen.build_result_prompt(refined_results)
+                    refine_prompt = f"{refine_prompt}{refined_output}\n\n{followup}\n\nAssistant:"
+
+        return jsonify(response)
+
+    @app.route("/v1/tools", methods=["GET"])
+    def list_tools():
+        """List all available tools."""
+        if not tool_registry:
+            return jsonify({"tools": []})
+        return jsonify({"tools": tool_registry.list_tools()})
+
+    @app.route("/v1/tools/call", methods=["POST"])
+    def call_tool():
+        """Invoke a registered tool directly."""
+        if not tool_registry:
+            return jsonify({"error": "Tools are disabled"}), 400
+
+        data = request.json
+        tool_name = data.get("name", "")
+        arguments = data.get("arguments", {})
+
+        if not tool_name:
+            return jsonify({"error": "No tool name provided"}), 400
+
+        from ..tools.tool_registry import ToolCall
+        call = ToolCall(name=tool_name, arguments=arguments)
+        result = tool_registry.execute_one(call)
+        return jsonify(result.to_dict())
+
     return app
 
 
@@ -245,6 +384,8 @@ class InferenceServer:
         draft_checkpoint: Optional[str] = None,
         num_speculative: int = 5,
         use_continuous_batching: bool = False,
+        enable_code_execution: bool = True,
+        sandbox_config: Optional[SandboxConfig] = None,
     ):
         self.checkpoint_path = checkpoint_path
         self.host = host
@@ -253,6 +394,8 @@ class InferenceServer:
         self.draft_checkpoint = draft_checkpoint
         self.num_speculative = num_speculative
         self.use_continuous_batching = use_continuous_batching
+        self.enable_code_execution = enable_code_execution
+        self.sandbox_config = sandbox_config
         self.generator = None
 
     def start(self) -> None:
@@ -267,7 +410,13 @@ class InferenceServer:
 
         mode = "speculative" if self.use_speculative else "standard"
         batching = " + continuous batching" if self.use_continuous_batching else ""
-        print(f"Model loaded ({mode}{batching}). Starting server on {self.host}:{self.port}")
+        sandbox = " + code sandbox" if self.enable_code_execution else ""
+        print(f"Model loaded ({mode}{batching}{sandbox}). Starting server on {self.host}:{self.port}")
 
-        app = create_app(self.generator, use_continuous_batching=self.use_continuous_batching)
+        app = create_app(
+            self.generator,
+            use_continuous_batching=self.use_continuous_batching,
+            enable_code_execution=self.enable_code_execution,
+            sandbox_config=self.sandbox_config,
+        )
         app.run(host=self.host, port=self.port, threaded=True)

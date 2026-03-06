@@ -8,9 +8,11 @@ Architecture: GPT-style decoder-only transformer with:
 - RMSNorm
 - SwiGLU activation
 - Flash Attention support
+- Code generation and sandboxed execution
+- Tool-use / function-calling interface
 
 Designed for training on curated ML/DL research, textbooks, and documentation.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __model_name__ = "MOM"
