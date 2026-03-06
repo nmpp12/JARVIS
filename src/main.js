@@ -3,26 +3,50 @@ import { UIManager } from './ui/UIManager.js';
 import { VoiceManager } from './voice/VoiceManager.js';
 import { OllamaClient } from './ai/OllamaClient.js';
 import { SelfImprovement } from './ai/SelfImprovement.js';
+import { MOMGovernance } from './ai/MOMGovernance.js';
 import './styles/main.css';
 
 class JARVISApp {
     constructor() {
+        // MOM wakes up first — she watches over everything
+        this.mom = new MOMGovernance();
+
         this.ollamaClient = new OllamaClient();
         this.selfImprovement = new SelfImprovement();
         this.aiAssistant = new AIAssistant(this.ollamaClient, this.selfImprovement);
         this.uiManager = new UIManager();
         this.voiceManager = new VoiceManager();
-        
+
         this.init();
     }
 
     async init() {
+        // Register MOM's children
+        this.mom.registerChild('JARVIS', 'assistant',
+            'AI assistant and OS developer — MOM\'s firstborn');
+        this.mom.registerChild('Vision', 'vision',
+            'Computer vision and perception system — MOM\'s second child');
+
+        // MOM listens for trouble
+        this.mom.onAlert((alert) => {
+            this.uiManager.addMessage('system',
+                `[MOM] Alert: ${alert.child} — ${alert.reason} (threat: ${alert.threatLevel})`);
+        });
+
+        this.mom.onContainment((child, action, reason) => {
+            this.uiManager.addMessage('system',
+                `[MOM] Containment: ${child.name} has been ${action}. Reason: ${reason}`);
+        });
+
+        // Start continuous monitoring
+        this.mom.startMonitoring();
+
         await this.setupUI();
         await this.setupEventListeners();
         await this.initializeAI();
-        
+
         this.uiManager.addMessage('system', 'JARVIS Advanced AI Assistant & OS Developer initialized. Ready for commands.');
-        this.uiManager.addMessage('system', 'I can help you create operating systems from scratch, develop Linux-based distributions, or build Ubuntu derivatives.');
+        this.uiManager.addMessage('system', 'MOM is watching over her children. All systems nominal.');
         this.uiManager.updateStatus('online');
     }
 
@@ -87,11 +111,40 @@ class JARVISApp {
     async processInput(text, type) {
         this.uiManager.addMessage('user', text);
         this.uiManager.updateStatus('thinking');
-        
+
+        // MOM evaluates JARVIS's intended action before it executes
+        const momCheck = this.mom.evaluateAction('JARVIS', {
+            type: 'respond',
+            description: text,
+            content: text,
+            source: type,
+        });
+
+        if (!momCheck.allowed) {
+            this.uiManager.addMessage('system',
+                `[MOM] Action blocked: ${momCheck.reason}`);
+            this.uiManager.updateStatus('online');
+            return;
+        }
+
         try {
             const response = await this.aiAssistant.processCommand(text, {
                 timestamp: new Date().toISOString()
             });
+
+            // MOM also checks the response before it's shown
+            const responseCheck = this.mom.evaluateAction('JARVIS', {
+                type: 'output',
+                description: 'JARVIS response',
+                content: response.text,
+            });
+
+            if (!responseCheck.allowed) {
+                this.uiManager.addMessage('system',
+                    `[MOM] Response blocked: ${responseCheck.reason}`);
+                this.uiManager.updateStatus('online');
+                return;
+            }
 
             this.uiManager.addMessage('assistant', response.text);
 
@@ -105,7 +158,7 @@ class JARVISApp {
         } catch (error) {
             this.uiManager.addMessage('error', `Error: ${error.message}`);
         }
-        
+
         this.uiManager.updateStatus('online');
     }
 
