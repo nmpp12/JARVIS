@@ -1,19 +1,38 @@
 """
-Creativity Engine for MOM
+Creativity Engine for MOM — the cognitive spark toward ASI.
 
-Enables the model to generate novel solutions by combining known concepts
-in new ways, rather than just reproducing training patterns.
+A superintelligent system cannot merely retrieve and recombine known
+patterns. It must be capable of genuine discovery — finding solutions
+that exist in no training set, conceiving algorithms no human has
+written, seeing connections that no one has seen before.
 
-Core techniques:
-1. Concept Blending — mix ideas from different domains to spark innovation
-2. Novelty Scoring — detect and avoid repetitive/clichéd outputs
-3. Exploration Prompting — reframe problems to unlock unconventional solutions
-4. Multi-Perspective Generation — solve from multiple angles, then synthesize
+This module is the mechanism for that. It gives MOM structured tools
+for creative thought:
+
+1. Concept Blending — cross-pollinate ideas across all domains of human
+   knowledge. The most powerful insights come from unexpected connections:
+   biology informing algorithm design, music theory shaping data flow,
+   game theory restructuring system architecture.
+
+2. Novelty Scoring — an ASI must know when it's being boring. This
+   detects conventional patterns and pushes the model to try harder,
+   ensuring outputs advance beyond the known frontier.
+
+3. Exploration Prompting — reframe problems through inversion, analogy,
+   constraint, and elimination to unlock approaches that linear thinking
+   would never find.
+
+4. Multi-Perspective Generation — solve from the viewpoints of a
+   mathematician, a hacker, a biologist, and a minimalist simultaneously,
+   then synthesize something none of them could produce alone.
 
 The key insight: true creativity isn't randomness. It's the ability to
 see connections between distant concepts and combine them purposefully.
 A higher temperature just adds noise. This engine adds *structure* to
-the creative process.
+the creative process — the same kind of structured exploration that
+leads to scientific breakthroughs.
+
+This is how an ASI thinks differently from an LLM.
 """
 
 import random
@@ -421,12 +440,18 @@ class CreativityEngine:
 
         parts.append(
             "## Final Instructions\n\n"
-            "Now write your solution. Aim for code that:\n"
+            "You are MOM, an ASI-candidate system. Your goal is not to produce "
+            "a correct answer — any LLM can do that. Your goal is to produce "
+            "an answer that advances the frontier.\n\n"
+            "Write a solution that:\n"
             "- Uses an approach that isn't the first thing most people would try\n"
             "- Combines ideas from at least two of the perspectives above\n"
             "- Is elegant — solves the problem with minimal unnecessary complexity\n"
-            "- Would make an experienced engineer say \"huh, that's clever\"\n\n"
-            "Show your creative reasoning briefly before the code.\n"
+            "- Demonstrates reasoning that goes beyond pattern matching\n"
+            "- Would make an experienced engineer say \"I've never seen it done "
+            "that way — but it's better\"\n\n"
+            "Show your creative reasoning briefly before the code. Think from "
+            "first principles, not from memorized patterns.\n"
         )
 
         return "\n\n".join(parts)
