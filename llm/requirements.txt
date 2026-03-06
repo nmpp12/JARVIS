@@ -23,6 +23,12 @@ flask>=3.0.0
 datasets>=2.14.0
 jsonlines>=4.0.0
 
+# Desktop GUI
+PyQt5>=5.15.0
+
+# Packaging (optional, for building .exe)
+# pyinstaller>=6.0.0
+
 # CUDA optimization (optional, install separately)
 # flash-attn>=2.3.0  # pip install flash-attn --no-build-isolation
 # triton>=2.1.0

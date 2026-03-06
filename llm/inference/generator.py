@@ -8,6 +8,8 @@ Supports multiple decoding strategies:
 - Temperature scaling
 - Repetition penalty
 - KV-cache for efficient autoregressive generation
+- Speculative decoding for 2-4x speedup
+- Early exit statistics reporting
 """
 
 import torch
@@ -142,10 +144,40 @@ class TextGenerator:
         probs = F.softmax(logits, dim=-1)
         return torch.multinomial(probs, num_samples=1).item()
 
+    def get_early_exit_stats(self) -> Optional[dict]:
+        """Get early exit statistics if early exit is enabled."""
+        if hasattr(self.model, 'early_exit_manager') and self.model.early_exit_manager is not None:
+            return self.model.early_exit_manager.get_stats()
+        return None
+
     @classmethod
-    def from_checkpoint(cls, checkpoint_path: str, device: Optional[str] = None) -> "TextGenerator":
-        """Load a generator from a training checkpoint."""
+    def from_checkpoint(
+        cls,
+        checkpoint_path: str,
+        device: Optional[str] = None,
+        use_speculative: bool = False,
+        num_speculative: int = 5,
+        draft_checkpoint: Optional[str] = None,
+    ) -> "TextGenerator":
+        """Load a generator from a training checkpoint.
+
+        Args:
+            checkpoint_path: Path to model checkpoint directory
+            device: Device to load model on
+            use_speculative: If True, return a SpeculativeDecoder instead
+            num_speculative: Number of speculative tokens (if use_speculative)
+            draft_checkpoint: Path to draft model checkpoint (if use_speculative)
+        """
         import os
+
+        if use_speculative:
+            from .speculative import SpeculativeDecoder
+            return SpeculativeDecoder.from_checkpoint(
+                main_checkpoint=checkpoint_path,
+                draft_checkpoint=draft_checkpoint,
+                num_speculative=num_speculative,
+                device=device,
+            )
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
