@@ -38,6 +38,19 @@ class ModelConfig:
     use_bitnet: bool = True  # Enable 1.58-bit BitNet quantization
     bitnet_exclude: str = "token_embedding,lm_head"  # Layers to keep in full precision
 
+    # Inference optimizations
+    use_sliding_window: bool = False
+    sliding_window_size: int = 512
+    use_early_exit: bool = False
+    early_exit_confidence: float = 0.9
+    early_exit_min_layer: int = 2
+    use_token_pruning: bool = False
+    token_pruning_threshold: float = 0.5
+    kv_cache_quantize_bits: Optional[int] = None  # None, 4, or 8
+    use_paged_kv_cache: bool = False
+    paged_kv_page_size: int = 16
+    use_triton_kernels: bool = True
+
     # Training
     initializer_range: float = 0.02
     gradient_checkpointing: bool = False
