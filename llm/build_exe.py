@@ -32,6 +32,8 @@ def main():
                         help="Build with debug console enabled")
     parser.add_argument("--icon", type=str, default=None,
                         help="Path to .ico file for the executable icon")
+    parser.add_argument("--shortcut", action="store_true",
+                        help="Create a desktop shortcut after building")
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.abspath(__file__))
@@ -118,9 +120,63 @@ def main():
         print(f"Build successful!")
         print(f"Executable: {exe_path}")
         print(f"{'='*50}")
+
+        if args.shortcut:
+            _create_desktop_shortcut(exe_path, args.icon)
     else:
         print(f"\nBuild failed with exit code {result.returncode}")
         sys.exit(1)
+
+
+def _create_desktop_shortcut(exe_path: str, icon_path: str = None):
+    """Create a desktop shortcut pointing to the built executable."""
+    exe_path = os.path.abspath(exe_path)
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    if not os.path.isdir(desktop):
+        print("Desktop folder not found, skipping shortcut creation.")
+        return
+
+    if sys.platform == "win32":
+        # Windows: create a .lnk shortcut via PowerShell
+        shortcut_path = os.path.join(desktop, "MOM.lnk")
+        ps_script = (
+            "$ws = New-Object -ComObject WScript.Shell; "
+            f"$s = $ws.CreateShortcut('{shortcut_path}'); "
+            f"$s.TargetPath = '{exe_path}'; "
+            f"$s.WorkingDirectory = '{os.path.dirname(exe_path)}'; "
+        )
+        if icon_path and os.path.isfile(icon_path):
+            ps_script += f"$s.IconLocation = '{os.path.abspath(icon_path)}'; "
+        ps_script += "$s.Save()"
+        subprocess.run(["powershell", "-Command", ps_script], check=True)
+        print(f"Desktop shortcut created: {shortcut_path}")
+
+    elif sys.platform == "darwin":
+        # macOS: create a symlink on Desktop
+        link_path = os.path.join(desktop, "MOM")
+        if os.path.exists(link_path):
+            os.remove(link_path)
+        os.symlink(exe_path, link_path)
+        print(f"Desktop shortcut created: {link_path}")
+
+    else:
+        # Linux: create a .desktop file
+        shortcut_path = os.path.join(desktop, "MOM.desktop")
+        icon_line = f"Icon={os.path.abspath(icon_path)}" if icon_path and os.path.isfile(icon_path) else "Icon=utilities-terminal"
+        contents = (
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=MOM\n"
+            f"Exec={exe_path}\n"
+            f"Path={os.path.dirname(exe_path)}\n"
+            f"{icon_line}\n"
+            "Terminal=false\n"
+            "Categories=Utility;\n"
+        )
+        with open(shortcut_path, "w") as f:
+            f.write(contents)
+        os.chmod(shortcut_path, 0o755)
+        print(f"Desktop shortcut created: {shortcut_path}")
 
 
 def _check_dependency(name: str, install_cmd: str):
