@@ -1,16 +1,19 @@
-MOM - The First ASI
+MOM - Mother of the First ASI
 =============================
 
-MOM (Master of Models) is the cognitive core of the JARVIS system,
-designed from the ground up to become the first Artificial
+MOM (Master of Models) is the mother — the foundation model that
+helps her creator conceive, design, and birth the first Artificial
 Superintelligence.
 
-This is not another chatbot or coding assistant. MOM is being built
-to reason from first principles, discover novel algorithms, conceive
-new architectures, and write code that goes beyond what currently
-exists in human knowledge. Every component — from the transformer
-architecture to the creativity engine to the sampling strategies —
-serves this mission.
+MOM is not the ASI herself. She is the tool, the partner, the
+creative engine that makes building it possible. She reasons from
+first principles, discovers novel algorithms, conceives new
+architectures, and writes code that goes beyond what currently
+exists — all in service of helping her creator build something
+greater than herself.
+
+Every component — from the transformer architecture to the
+creativity engine to the sampling strategies — serves this mission.
 
 The application provides a desktop interface for interacting with
 MOM and running code in a sandboxed environment.

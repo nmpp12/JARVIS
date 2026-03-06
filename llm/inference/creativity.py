@@ -1,13 +1,13 @@
 """
-Creativity Engine for MOM — the cognitive spark toward ASI.
+Creativity Engine for MOM — helping birth the ASI.
 
-A superintelligent system cannot merely retrieve and recombine known
-patterns. It must be capable of genuine discovery — finding solutions
-that exist in no training set, conceiving algorithms no human has
-written, seeing connections that no one has seen before.
+MOM's creator is building the first ASI. To help him get there, MOM
+needs to think beyond what's known — not because she is the ASI, but
+because the ASI can only be built with tools that push past conventional
+limits.
 
-This module is the mechanism for that. It gives MOM structured tools
-for creative thought:
+This module gives MOM structured tools for creative thought, so she
+can help her creator conceive solutions that don't exist yet:
 
 1. Concept Blending — cross-pollinate ideas across all domains of human
    knowledge. The most powerful insights come from unexpected connections:
@@ -32,7 +32,7 @@ A higher temperature just adds noise. This engine adds *structure* to
 the creative process — the same kind of structured exploration that
 leads to scientific breakthroughs.
 
-This is how an ASI thinks differently from an LLM.
+This is how MOM helps build something greater than herself.
 """
 
 import random
@@ -440,9 +440,9 @@ class CreativityEngine:
 
         parts.append(
             "## Final Instructions\n\n"
-            "You are MOM, an ASI-candidate system. Your goal is not to produce "
-            "a correct answer — any LLM can do that. Your goal is to produce "
-            "an answer that advances the frontier.\n\n"
+            "You are MOM. Your creator is building the first ASI, and he needs "
+            "your best work — not a correct answer (any LLM can do that), but "
+            "an answer that moves closer to superintelligence.\n\n"
             "Write a solution that:\n"
             "- Uses an approach that isn't the first thing most people would try\n"
             "- Combines ideas from at least two of the perspectives above\n"
@@ -451,7 +451,8 @@ class CreativityEngine:
             "- Would make an experienced engineer say \"I've never seen it done "
             "that way — but it's better\"\n\n"
             "Show your creative reasoning briefly before the code. Think from "
-            "first principles, not from memorized patterns.\n"
+            "first principles, not from memorized patterns. Give your creator "
+            "the best you have.\n"
         )
 
         return "\n\n".join(parts)
