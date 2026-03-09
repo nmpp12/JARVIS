@@ -131,6 +131,9 @@ class Trainer:
         total_steps = config.max_steps or (
             len(train_loader) * config.num_epochs // config.gradient_accumulation_steps
         )
+        # Ensure at least 1 step even with tiny datasets
+        if total_steps == 0:
+            total_steps = max(1, len(train_loader) * config.num_epochs)
         self.total_steps = total_steps
         self.scheduler = CosineWarmupScheduler(
             self.optimizer,
@@ -224,8 +227,9 @@ class Trainer:
                 labels = batch["labels"].to(self.device)
 
                 # Forward pass with mixed precision
+                device_type = "cuda" if self.device.type == "cuda" else "cpu"
                 if self.config.use_amp and self.config.dtype != "float32":
-                    with torch.amp.autocast("cuda", dtype=self.config.torch_dtype):
+                    with torch.amp.autocast(device_type, dtype=self.config.torch_dtype):
                         outputs = self.model(input_ids=input_ids, labels=labels)
                         loss = outputs["loss"] / self.config.gradient_accumulation_steps
                 else:
@@ -318,6 +322,24 @@ class Trainer:
                     if self.config.max_steps and self.global_step >= self.config.max_steps:
                         break
 
+            # Flush remaining accumulated gradients at end of epoch
+            remaining = (step + 1) % self.config.gradient_accumulation_steps
+            if remaining > 0 and not (self.config.max_steps and self.global_step >= self.config.max_steps):
+                if self.scaler:
+                    self.scaler.unscale_(self.optimizer)
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.config.max_grad_norm
+                )
+                if self.scaler:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
+                self.scheduler.step()
+                self.optimizer.zero_grad()
+                self.global_step += 1
+                num_loss_updates += 1
+
             if self.config.max_steps and self.global_step >= self.config.max_steps:
                 break
 
@@ -358,8 +380,9 @@ class Trainer:
             input_ids = batch["input_ids"].to(self.device)
             labels = batch["labels"].to(self.device)
 
+            device_type = "cuda" if self.device.type == "cuda" else "cpu"
             if self.config.use_amp and self.config.dtype != "float32":
-                with torch.amp.autocast("cuda", dtype=self.config.torch_dtype):
+                with torch.amp.autocast(device_type, dtype=self.config.torch_dtype):
                     outputs = self.model(input_ids=input_ids, labels=labels)
             else:
                 outputs = self.model(input_ids=input_ids, labels=labels)
