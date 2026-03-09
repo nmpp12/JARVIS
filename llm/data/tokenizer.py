@@ -37,6 +37,21 @@ SPECIAL_TOKENS = {
     "</architecture>": 18,
     "<equation>": 19,
     "</equation>": 20,
+    # Sibling creation tokens
+    "<sibling>": 21,
+    "</sibling>": 22,
+    "<jarvis>": 23,
+    "</jarvis>": 24,
+    "<vision>": 25,
+    "</vision>": 26,
+    "<tool_call>": 27,
+    "</tool_call>": 28,
+    "<tool_result>": 29,
+    "</tool_result>": 30,
+    "<scene_graph>": 31,
+    "</scene_graph>": 32,
+    "<governance>": 33,
+    "</governance>": 34,
 }
 
 # ML/DL specific vocabulary additions
@@ -65,6 +80,11 @@ ML_VOCABULARY = [
     "likelihood", "bayesian", "markov", "gaussian",
     # Frameworks
     "pytorch", "tensorflow", "jax", "numpy", "cuda", "triton",
+    # Sibling creation & governance
+    "jarvis", "vision", "sibling_bus", "scene_graph", "tool_call",
+    "trust_score", "containment", "anomaly_score", "threat_level",
+    "multimodal_fusion", "cross_attention", "distillation",
+    "knowledge_transfer", "capability_grant", "moral_boundary",
 ]
 
 
