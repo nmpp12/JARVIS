@@ -139,6 +139,7 @@ export class SelfImprovement {
         return [
             { path: 'main.js', type: 'javascript' },
             { path: 'core/AIAssistant.js', type: 'javascript' },
+            { path: 'ai/MOMLLMClient.js', type: 'javascript' },
             { path: 'ai/OllamaClient.js', type: 'javascript' },
             { path: 'ai/SelfImprovement.js', type: 'javascript' },
             { path: 'ui/UIManager.js', type: 'javascript' },
