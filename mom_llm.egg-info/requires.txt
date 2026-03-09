@@ -1,0 +1,10 @@
+torch>=2.0
+flask
+pyyaml
+
+[gui]
+gradio
+
+[train]
+wandb
+datasets
