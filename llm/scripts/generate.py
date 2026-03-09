@@ -39,6 +39,10 @@ def parse_args():
                         help="Server port (with --serve)")
     parser.add_argument("--device", type=str, default=None,
                         help="Device (cuda/cpu)")
+    parser.add_argument("--cpu", action="store_true",
+                        help="CPU mode: cap threads, disable GPU features")
+    parser.add_argument("--threads", type=int, default=None,
+                        help="Max CPU threads (default: half your cores, max 4)")
     return parser.parse_args()
 
 
@@ -77,9 +81,19 @@ def interactive_mode(generator: TextGenerator, args):
 def main():
     args = parse_args()
 
+    if args.cpu:
+        from llm.inference.server import configure_cpu_threads
+        threads = configure_cpu_threads(args.threads)
+        print(f"CPU mode: {threads} threads")
+        if args.device is None:
+            args.device = "cpu"
+
     if args.serve:
         from llm.inference.server import InferenceServer
-        server = InferenceServer(args.checkpoint, port=args.port)
+        server = InferenceServer(
+            args.checkpoint, port=args.port,
+            cpu_mode=args.cpu, cpu_threads=args.threads,
+        )
         server.start()
         return
 
