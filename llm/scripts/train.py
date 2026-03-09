@@ -41,8 +41,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train MOM")
     parser.add_argument("--config", type=str, help="Path to YAML config file")
     parser.add_argument("--preset", type=str, default="small",
-                        choices=["tiny", "small", "medium", "large", "xl"],
-                        help="Model size preset")
+                        choices=["tiny", "laptop", "small", "medium", "large", "xl"],
+                        help="Model size preset (laptop = CPU-friendly ~42M)")
     parser.add_argument("--data-path", type=str, help="Path to training data")
     parser.add_argument("--eval-path", type=str, help="Path to eval data")
     parser.add_argument("--resume", type=str, help="Resume from checkpoint path")

@@ -1,0 +1,40 @@
+# MOM Training Config - Laptop / CPU Mode (~42M params)
+# Designed for machines without a dedicated GPU.
+# Uses BitNet 1.58-bit, early exit, sliding window, and token pruning
+# to keep CPU usage and RAM in check.
+
+model:
+  preset: laptop           # 512D, 8L, 8H — ~42M params
+  vocab_size: 32000
+  max_seq_len: 1024
+  use_flash_attention: false   # no CUDA
+  use_bitnet: true             # ternary weights → add/sub only, no FP matmul
+  gradient_checkpointing: true # trade compute for RAM
+
+training:
+  learning_rate: 3.0e-4
+  min_lr: 3.0e-5
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  max_grad_norm: 1.0
+
+  batch_size: 4                # small batches to limit RAM
+  gradient_accumulation_steps: 8  # effective batch = 32
+  num_epochs: 3
+  warmup_steps: 500
+  lr_schedule: cosine
+
+  dtype: float32               # no bf16/fp16 on most laptop CPUs
+  use_amp: false               # AMP needs CUDA
+
+  checkpoint_dir: ./checkpoints/mom-laptop
+  save_every_steps: 1000
+  eval_every_steps: 250
+  log_every_steps: 10
+
+data:
+  train_path: ./data/ml_knowledge.jsonl
+  eval_path: ./data/ml_knowledge_eval.jsonl
+  max_seq_len: 1024
+  num_workers: 2               # fewer workers to save CPU

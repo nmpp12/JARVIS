@@ -14,6 +14,7 @@ Supports:
 """
 
 import json
+import os
 import time
 import uuid
 import threading
@@ -24,6 +25,30 @@ from .generator import TextGenerator
 from ..tools.sandbox import Sandbox, SandboxConfig
 from ..tools.code_generator import CodeGenerator, ASI_IDENTITY_PROMPT
 from ..tools.tool_registry import ToolRegistry
+
+
+def configure_cpu_threads(num_threads: Optional[int] = None) -> int:
+    """Cap CPU thread usage so MOM doesn't swallow all cores.
+
+    On a laptop with, say, 8 cores this defaults to using half (4).
+    PyTorch, OpenMP, and MKL all respect these limits.
+    Returns the thread count actually set.
+    """
+    if num_threads is None:
+        # Use half the available cores (min 1, max 4)
+        num_threads = max(1, min(4, (os.cpu_count() or 4) // 2))
+
+    os.environ["OMP_NUM_THREADS"] = str(num_threads)
+    os.environ["MKL_NUM_THREADS"] = str(num_threads)
+
+    try:
+        import torch
+        torch.set_num_threads(num_threads)
+        torch.set_num_interop_threads(max(1, num_threads // 2))
+    except Exception:
+        pass
+
+    return num_threads
 
 
 class ContinuousBatcher:
@@ -375,6 +400,7 @@ class InferenceServer:
     - Standard generation with all optimizations (early exit, token pruning, Triton)
     - Speculative decoding mode for 2-4x speedup
     - Continuous batching for high-throughput serving
+    - CPU / laptop mode for running without a GPU
     """
 
     def __init__(
@@ -388,6 +414,8 @@ class InferenceServer:
         use_continuous_batching: bool = False,
         enable_code_execution: bool = True,
         sandbox_config: Optional[SandboxConfig] = None,
+        cpu_mode: bool = False,
+        cpu_threads: Optional[int] = None,
     ):
         self.checkpoint_path = checkpoint_path
         self.host = host
@@ -398,10 +426,18 @@ class InferenceServer:
         self.use_continuous_batching = use_continuous_batching
         self.enable_code_execution = enable_code_execution
         self.sandbox_config = sandbox_config
+        self.cpu_mode = cpu_mode
+        self.cpu_threads = cpu_threads
         self.generator = None
 
     def start(self) -> None:
         """Load model and start the server."""
+        # ── CPU mode: cap threads before loading anything ──
+        if self.cpu_mode:
+            threads = configure_cpu_threads(self.cpu_threads)
+            print(f"CPU mode: limited to {threads} threads "
+                  f"(of {os.cpu_count()} available)")
+
         print(f"Loading model from {self.checkpoint_path}...")
         self.generator = TextGenerator.from_checkpoint(
             self.checkpoint_path,
@@ -411,6 +447,8 @@ class InferenceServer:
         )
 
         mode = "speculative" if self.use_speculative else "standard"
+        if self.cpu_mode:
+            mode = f"cpu-{mode}"
         batching = " + continuous batching" if self.use_continuous_batching else ""
         sandbox = " + code sandbox" if self.enable_code_execution else ""
         print(f"Model loaded ({mode}{batching}{sandbox}). Starting server on {self.host}:{self.port}")
