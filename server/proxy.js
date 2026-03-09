@@ -95,15 +95,46 @@ const ollamaProxy = createProxyMiddleware({
 // Use the proxy for all /ollama routes
 app.use('/ollama', ollamaProxy);
 
+// MOM (custom LLM) status check
+function checkMOMStatus() {
+  return new Promise((resolve) => {
+    const req = http.request({
+      hostname: 'localhost',
+      port: 8000,
+      path: '/health',
+      method: 'GET',
+      timeout: 2000
+    }, (res) => {
+      resolve(true);
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end();
+  });
+}
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'Proxy server is running', port: PORT });
 });
 
+// Combined LLM status endpoint
+app.get('/llm-status', async (req, res) => {
+  const [momRunning, ollamaRunning] = await Promise.all([
+    checkMOMStatus(),
+    checkOllamaStatus()
+  ]);
+  res.json({
+    mom: { running: momRunning, url: 'http://localhost:8000' },
+    ollama: { running: ollamaRunning, url: 'http://localhost:11434' },
+    primary: momRunning ? 'mom' : (ollamaRunning ? 'ollama' : 'none'),
+  });
+});
+
 // Ollama status check endpoint
 app.get('/ollama-status', async (req, res) => {
   const isRunning = await checkOllamaStatus();
-  res.json({ 
+  res.json({
     running: isRunning,
     message: isRunning ? 'Ollama is running' : 'Ollama is not running',
     instructions: isRunning ? null : [
@@ -117,20 +148,22 @@ app.get('/ollama-status', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Proxy server running on http://localhost:${PORT}`);
+  console.log(`🧠 MOM (custom LLM) expected at http://localhost:8000`);
   console.log(`🔗 Ollama API available at http://localhost:${PORT}/ollama`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔍 Ollama status: http://localhost:${PORT}/ollama-status`);
-  
-  // Check Ollama status on startup
-  checkOllamaStatus().then(isRunning => {
-    if (isRunning) {
-      console.log('✅ Ollama service is running');
+  console.log(`🔍 LLM status: http://localhost:${PORT}/llm-status`);
+
+  // Check backend status on startup
+  Promise.all([checkMOMStatus(), checkOllamaStatus()]).then(([momUp, ollamaUp]) => {
+    if (momUp) {
+      console.log('✅ MOM (custom LLM) is running — primary backend ready');
     } else {
-      console.log('⚠️  Ollama service is not running');
-      console.log('   To start Ollama:');
-      console.log('   1. Open a new terminal window');
-      console.log('   2. Run: ollama serve');
-      console.log('   3. Keep that terminal open');
+      console.log('⚠️  MOM is not running. Start with: cd llm && python -m inference.server');
+    }
+    if (ollamaUp) {
+      console.log('✅ Ollama is running (optional fallback)');
+    } else {
+      console.log('ℹ️  Ollama is not running (optional — not required)');
     }
   });
 });

@@ -1,6 +1,7 @@
 import { AIAssistant } from './core/AIAssistant.js';
 import { UIManager } from './ui/UIManager.js';
 import { VoiceManager } from './voice/VoiceManager.js';
+import { MOMLLMClient } from './ai/MOMLLMClient.js';
 import { OllamaClient } from './ai/OllamaClient.js';
 import { SelfImprovement } from './ai/SelfImprovement.js';
 import { MOMGovernance } from './ai/MOMGovernance.js';
@@ -27,9 +28,13 @@ class JARVISApp {
         // MOM's dream engine — she reflects when idle
         this.momDreams = new DreamMode(this.momMemory, this.mom);
 
+        // LLM clients — MOM's brain is primary, Ollama is optional
+        this.momLLM = new MOMLLMClient();
         this.ollamaClient = new OllamaClient();
+        this.activeLLM = null; // set during initializeAI
+
         this.selfImprovement = new SelfImprovement();
-        this.aiAssistant = new AIAssistant(this.ollamaClient, this.selfImprovement);
+        this.aiAssistant = null; // created after LLM init
         this.uiManager = new UIManager();
         this.voiceManager = new VoiceManager();
 
@@ -59,7 +64,6 @@ class JARVISApp {
         this.mom.onAlert((alert) => {
             this.uiManager.addMessage('system',
                 `[MOM] Alert: ${alert.child} — ${alert.reason} (threat: ${alert.threatLevel})`);
-            // MOM feels concern when alerts fire
             this.momEmotions.feel('threat_detected', 0.7);
             this.momMemory.observeChild(alert.child, alert.reason, 'concerning');
         });
@@ -116,7 +120,7 @@ class JARVISApp {
 
     async setupUI() {
         this.uiManager.render();
-        
+
         // Setup voice visualization
         this.voiceManager.onVoiceActivity = (level) => {
             this.uiManager.updateVoiceLevel(level);
@@ -139,9 +143,14 @@ class JARVISApp {
             this.uiManager.updateStatus('online');
         };
 
-        // Model selection
+        // Model selection — route to whichever backend has it
         this.uiManager.onModelChange = (model) => {
-            this.ollamaClient.setModel(model);
+            if (model === 'mom') {
+                this.setActiveLLM(this.momLLM, 'MOM');
+            } else {
+                this.ollamaClient.setModel(model);
+                this.setActiveLLM(this.ollamaClient, `Ollama (${model})`);
+            }
         };
 
         // Self-improvement toggle
@@ -151,28 +160,53 @@ class JARVISApp {
         };
     }
 
+    /**
+     * Initialize AI — try MOM first, fall back to Ollama only if MOM is offline.
+     */
     async initializeAI() {
-        try {
-            const result = await this.ollamaClient.getModels();
-            
-            if (result.error) {
-                this.handleOllamaOffline({ message: result.error });
-            } else if (Array.isArray(result)) {
-                // Success case - result is array of model names
-                this.uiManager.updateModelList(result);
-                
-                if (result.length > 0) {
-                    this.ollamaClient.setModel(result[0]);
-                    this.uiManager.addMessage('system', `Connected to Ollama. Available models: ${result.join(', ')}`);
-                    this.uiManager.updateStatus('online');
-                }
-            }
-        } catch (error) {
-            this.handleOllamaOffline(error);
+        // 1. Try MOM (custom LLM) first
+        const momHealthy = await this.momLLM.healthCheck();
+        if (momHealthy) {
+            const models = await this.momLLM.getAvailableModels();
+            this.setActiveLLM(this.momLLM, 'MOM');
+            this.uiManager.addMessage('system',
+                `Connected to MOM (custom LLM). Model: ${Array.isArray(models) ? models.join(', ') : 'mom'}`);
+            this.uiManager.updateModelList(['mom']);
+            return;
         }
+
+        // 2. MOM is offline — try Ollama as optional fallback
+        try {
+            const result = await this.ollamaClient.getAvailableModels();
+
+            if (!result.error && Array.isArray(result) && result.length > 0) {
+                this.ollamaClient.setModel(result[0]);
+                this.setActiveLLM(this.ollamaClient, `Ollama (${result[0]})`);
+                this.uiManager.updateModelList(result);
+                this.uiManager.addMessage('system',
+                    `MOM is offline. Using Ollama fallback. Models: ${result.join(', ')}`);
+                return;
+            }
+        } catch {
+            // Ollama unavailable too — that's fine
+        }
+
+        // 3. Neither backend is available
+        this.handleAllOffline();
+    }
+
+    setActiveLLM(client, label) {
+        this.activeLLM = client;
+        this.aiAssistant = new AIAssistant(client, this.selfImprovement);
+        console.log(`[JARVIS] Active LLM: ${label}`);
     }
 
     async processInput(text, type) {
+        if (!this.aiAssistant) {
+            this.uiManager.addMessage('error', 'No LLM backend available. Please start the MOM server (cd llm && python -m inference.server).');
+            return;
+        }
+
         this.uiManager.addMessage('user', text);
         this.uiManager.updateStatus('thinking');
 
@@ -232,10 +266,6 @@ class JARVISApp {
                 success: true,
             });
 
-            if (response.suggestions) {
-                // Could add UI for suggestions in the future
-            }
-
             if (response.voice && type === 'voice') {
                 await this.voiceManager.speak(response.text);
             }
@@ -248,8 +278,11 @@ class JARVISApp {
         this.uiManager.updateStatus('online');
     }
 
-    handleOllamaOffline(error) {
-        this.uiManager.addMessage('error', 'Ollama is not running. Please start Ollama to use AI features.');
+    handleAllOffline() {
+        this.uiManager.addMessage('error',
+            'No LLM backend available. Start MOM: cd llm && python -m inference.server');
+        this.uiManager.addMessage('system',
+            'Ollama is also available as an optional fallback (ollama serve).');
         this.uiManager.updateStatus('offline');
     }
 }
