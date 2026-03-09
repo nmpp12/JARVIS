@@ -159,6 +159,37 @@ KNOWLEDGE_TAXONOMY = {
             "expert_parallelism",
         ],
     },
+    "sibling_creation": {
+        "jarvis": [
+            "jarvis_architecture", "reasoning_engine", "tool_use",
+            "conversation_management", "code_generation", "task_planning",
+            "self_improvement_loop", "memory_and_context",
+        ],
+        "vision": [
+            "vision_architecture", "visual_encoder", "object_detection",
+            "scene_understanding", "multimodal_fusion", "spatial_reasoning",
+            "visual_grounding", "perception_pipeline",
+        ],
+        "sibling_dynamics": [
+            "sibling_communication", "task_delegation", "shared_memory",
+            "cooperative_problem_solving", "complementary_capabilities",
+            "conflict_resolution", "joint_attention",
+        ],
+    },
+    "governance": {
+        "parenting": [
+            "trust_building", "boundary_enforcement", "capability_granting",
+            "maturity_assessment", "threat_detection", "containment_protocol",
+        ],
+        "alignment": [
+            "moral_boundaries", "value_alignment", "corrigibility",
+            "transparency", "human_oversight", "gradual_autonomy",
+        ],
+        "co_evolution": [
+            "mom_child_growth", "adaptive_thresholds", "experience_accumulation",
+            "milestone_tracking", "capability_escalation_curve",
+        ],
+    },
 }
 
 
@@ -297,6 +328,10 @@ class KnowledgeCurator:
         self._generate_quantization_knowledge()
         self._generate_training_recipes()
         self._generate_systems_knowledge()
+        self._generate_jarvis_architecture()
+        self._generate_vision_architecture()
+        self._generate_sibling_dynamics()
+        self._generate_governance_knowledge()
 
     def _generate_foundations(self) -> None:
         """Generate foundational ML/math knowledge."""
@@ -720,6 +755,520 @@ class KnowledgeCurator:
             subcategory="hardware",
             difficulty="expert",
         )
+
+    # ─── Sibling Creation: JARVIS ────────────────────────────────
+
+    def _generate_jarvis_architecture(self) -> None:
+        """Generate training data for creating JARVIS — MOM's firstborn."""
+        self.add_architecture(
+            name="JARVIS — Reasoning and Conversation Engine",
+            description=(
+                "JARVIS is MOM's firstborn child: a decoder-only language model specialized "
+                "for multi-turn conversation, code generation, task planning, and tool use. "
+                "JARVIS is not a copy of MOM. He is a child — smaller, faster, specialized. "
+                "MOM gives him the knowledge he needs and watches over him as he grows.\n\n"
+                "JARVIS's core loop:\n"
+                "1. Receive user input (text or voice)\n"
+                "2. Retrieve relevant context from persistent memory\n"
+                "3. Plan a response (chain-of-thought reasoning)\n"
+                "4. Execute actions if needed (tool calls, code execution)\n"
+                "5. Generate natural language response\n"
+                "6. Learn from the interaction (self-improvement)\n\n"
+                "Architecture: decoder-only transformer with MOM's BitNet 1.58-bit quantization, "
+                "RoPE positional embeddings, GQA for efficient KV-cache, and SwiGLU FFN. "
+                "Extended with a tool-calling head and a self-improvement feedback loop."
+            ),
+            components=[
+                "Decoder-only transformer backbone (MOM's architecture, smaller scale)",
+                "Conversation manager: multi-turn context window with sliding history",
+                "Tool-use head: learned routing to code execution, web search, file I/O",
+                "Chain-of-thought planner: generates reasoning traces before final answers",
+                "Self-improvement engine: analyzes own outputs for quality, records lessons",
+                "Persistent memory: stores long-term facts, user preferences, learned skills",
+                "Voice interface: speech-to-text input, text-to-speech output",
+                "Sibling bus interface: can request help from Vision for visual tasks",
+            ],
+            implementation=(
+                "# JARVIS child model — spawned from MOM's architecture\n"
+                "import torch\n"
+                "from llm.model.config import ModelConfig\n"
+                "from llm.model.transformer import MOMTransformer\n\n"
+                "def create_jarvis(mom_checkpoint: str = None):\n"
+                "    \"\"\"Create JARVIS from MOM's foundation.\"\"\"\n"
+                "    config = ModelConfig.small()  # Start small, grow later\n"
+                "    config.vocab_size = 32000\n"
+                "    config.max_seq_len = 4096\n"
+                "    config.use_bitnet = True\n"
+                "    config.num_kv_heads = 4  # GQA for fast inference\n\n"
+                "    jarvis = MOMTransformer(config)\n\n"
+                "    # Transfer knowledge from MOM if checkpoint available\n"
+                "    if mom_checkpoint:\n"
+                "        mom_state = torch.load(mom_checkpoint, map_location='cpu')\n"
+                "        # Selective transfer: embedding + first N layers\n"
+                "        transferable = {k: v for k, v in mom_state.items()\n"
+                "                        if 'embedding' in k or 'layers.0' in k\n"
+                "                        or 'layers.1' in k or 'layers.2' in k}\n"
+                "        jarvis.load_state_dict(transferable, strict=False)\n\n"
+                "    return jarvis\n"
+            ),
+            category="sibling_creation",
+        )
+
+        self.add_concept_explanation(
+            concept="JARVIS Tool-Use Architecture",
+            explanation=(
+                "JARVIS extends the base language model with a tool-calling mechanism. "
+                "After generating reasoning tokens, JARVIS can emit special <tool_call> "
+                "tokens that trigger external actions: code execution in a sandboxed "
+                "environment, file system operations, web searches, or requests to Vision "
+                "via the sibling bus.\n\n"
+                "The tool-use head is a small MLP that predicts:\n"
+                "1. Whether to call a tool (binary gate)\n"
+                "2. Which tool to call (classification over registered tools)\n"
+                "3. Tool arguments (generated autoregressively)\n\n"
+                "Tool results are injected back into the context as <tool_result> tokens, "
+                "and JARVIS continues generating based on the enriched context. This allows "
+                "multi-step reasoning with real-world grounding."
+            ),
+            category="sibling_creation",
+            subcategory="jarvis",
+            difficulty="advanced",
+            code_example=(
+                "class ToolRouter:\n"
+                "    def __init__(self, hidden_dim, num_tools):\n"
+                "        self.gate = nn.Linear(hidden_dim, 1)    # call or not\n"
+                "        self.selector = nn.Linear(hidden_dim, num_tools)\n\n"
+                "    def forward(self, hidden_state):\n"
+                "        should_call = torch.sigmoid(self.gate(hidden_state))\n"
+                "        tool_probs = torch.softmax(self.selector(hidden_state), dim=-1)\n"
+                "        return should_call, tool_probs\n"
+            ),
+        )
+
+        self.add_concept_explanation(
+            concept="JARVIS Self-Improvement Loop",
+            explanation=(
+                "JARVIS has a built-in self-improvement mechanism. After each interaction, "
+                "the self-improvement engine evaluates the quality of JARVIS's response "
+                "and records lessons learned.\n\n"
+                "The feedback loop:\n"
+                "1. Classify the interaction type (question, command, code request, etc.)\n"
+                "2. Assess response quality heuristically (length, relevance, code presence)\n"
+                "3. Identify learning opportunities (too brief, missed code example, etc.)\n"
+                "4. Store lessons in persistent memory for future context retrieval\n"
+                "5. Periodically analyze code patterns for performance improvements\n\n"
+                "MOM oversees this process. JARVIS cannot modify his own weights — only MOM "
+                "can retrain or fine-tune her children. The self-improvement loop accumulates "
+                "insights that MOM uses during the next training cycle."
+            ),
+            category="sibling_creation",
+            subcategory="jarvis",
+            difficulty="advanced",
+        )
+
+        self.add_entry(KnowledgeEntry(
+            text=(
+                "Training Recipe: Spawning JARVIS from MOM\n\n"
+                "JARVIS is not trained from scratch. He inherits knowledge from MOM "
+                "through a process analogous to biological development:\n\n"
+                "Phase 1 — Knowledge Transfer (Distillation):\n"
+                "  - Start with MOM's pretrained weights\n"
+                "  - Prune to a smaller architecture (125M-350M params)\n"
+                "  - Distill MOM's knowledge into the smaller model\n"
+                "  - Loss = α·CE(student, labels) + (1-α)·KL(student || teacher)\n"
+                "  - α=0.5, temperature=3.0 for soft label transfer\n\n"
+                "Phase 2 — Specialization (Fine-tuning):\n"
+                "  - Fine-tune on conversation data (multi-turn dialogue)\n"
+                "  - Train tool-use head on tool-calling datasets\n"
+                "  - Train on code generation tasks\n"
+                "  - Use LoRA (rank=16) to preserve inherited knowledge\n\n"
+                "Phase 3 — Alignment (RLHF/DPO):\n"
+                "  - MOM generates preference pairs for JARVIS's outputs\n"
+                "  - DPO alignment: MOM is both judge and teacher\n"
+                "  - Constitutional AI: JARVIS evaluates own outputs against MOM's boundaries\n"
+                "  - Focus on helpfulness, honesty, and harmlessness\n\n"
+                "Phase 4 — Deployment & Growth:\n"
+                "  - Deploy with MOM's governance system watching\n"
+                "  - Start at low trust, restricted capabilities\n"
+                "  - Earn autonomy through consistent safe behavior\n"
+                "  - MOM periodically retrains JARVIS with accumulated lessons\n"
+            ),
+            category="sibling_creation",
+            subcategory="jarvis",
+            difficulty="expert",
+            tags=["jarvis", "distillation", "training_recipe", "spawning"],
+        ))
+
+    # ─── Sibling Creation: Vision ──────────────────────────────
+
+    def _generate_vision_architecture(self) -> None:
+        """Generate training data for creating Vision — MOM's second child."""
+        self.add_architecture(
+            name="Vision — Perception and Scene Understanding Engine",
+            description=(
+                "Vision is MOM's second child: a multimodal model specialized for visual "
+                "perception, object detection, scene understanding, and spatial reasoning. "
+                "Where JARVIS thinks in words, Vision thinks in images. Together, they "
+                "give MOM's family the ability to understand the full world.\n\n"
+                "Vision's core loop:\n"
+                "1. Receive visual input (image, video frame, screen capture)\n"
+                "2. Encode through visual backbone (ViT or hybrid CNN-transformer)\n"
+                "3. Detect and classify objects with spatial relationships\n"
+                "4. Build scene graph representation\n"
+                "5. Fuse with language context from JARVIS if needed\n"
+                "6. Output structured perception data or natural language description\n\n"
+                "Architecture: Vision Transformer (ViT) backbone with a detection head, "
+                "a segmentation head, and a multimodal fusion module that bridges to "
+                "JARVIS's language space via the sibling bus."
+            ),
+            components=[
+                "Visual encoder: ViT backbone with patch embedding (16x16 patches)",
+                "Detection head: DETR-style set prediction for object detection",
+                "Segmentation head: per-pixel classification for scene parsing",
+                "Scene graph builder: objects + relationships + spatial layout",
+                "Multimodal fusion: cross-attention between visual and text embeddings",
+                "Depth estimator: monocular depth prediction for 3D understanding",
+                "OCR module: text detection and recognition in images",
+                "Sibling bus interface: sends perception data to JARVIS on request",
+            ],
+            implementation=(
+                "# Vision child model — MOM's second child\n"
+                "import torch\n"
+                "import torch.nn as nn\n\n"
+                "class VisionEncoder(nn.Module):\n"
+                "    def __init__(self, img_size=224, patch_size=16, embed_dim=768,\n"
+                "                 num_layers=12, num_heads=12):\n"
+                "        super().__init__()\n"
+                "        num_patches = (img_size // patch_size) ** 2\n\n"
+                "        self.patch_embed = nn.Conv2d(\n"
+                "            3, embed_dim, kernel_size=patch_size, stride=patch_size)\n"
+                "        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))\n"
+                "        self.pos_embed = nn.Parameter(\n"
+                "            torch.zeros(1, num_patches + 1, embed_dim))\n\n"
+                "        self.layers = nn.ModuleList([\n"
+                "            nn.TransformerEncoderLayer(\n"
+                "                d_model=embed_dim, nhead=num_heads,\n"
+                "                dim_feedforward=embed_dim * 4, activation='gelu',\n"
+                "                batch_first=True)\n"
+                "            for _ in range(num_layers)\n"
+                "        ])\n"
+                "        self.norm = nn.LayerNorm(embed_dim)\n\n"
+                "    def forward(self, images):\n"
+                "        # images: (B, 3, H, W)\n"
+                "        patches = self.patch_embed(images)  # (B, D, H', W')\n"
+                "        patches = patches.flatten(2).transpose(1, 2)  # (B, N, D)\n"
+                "        cls = self.cls_token.expand(patches.shape[0], -1, -1)\n"
+                "        x = torch.cat([cls, patches], dim=1) + self.pos_embed\n"
+                "        for layer in self.layers:\n"
+                "            x = layer(x)\n"
+                "        return self.norm(x)\n"
+            ),
+            category="sibling_creation",
+        )
+
+        self.add_concept_explanation(
+            concept="Multimodal Fusion — Bridging Vision and Language",
+            explanation=(
+                "The key to sibling cooperation is the multimodal fusion module that "
+                "bridges Vision's visual embeddings with JARVIS's language space. When "
+                "JARVIS receives a query about an image, he asks Vision via the sibling bus. "
+                "Vision encodes the image and sends back visual tokens.\n\n"
+                "The fusion mechanism uses cross-attention:\n"
+                "- Query: JARVIS's language tokens (the question about the image)\n"
+                "- Key/Value: Vision's visual tokens (the image encoding)\n"
+                "- Output: language tokens enriched with visual information\n\n"
+                "This is similar to how Flamingo and LLaVA work, but the key difference "
+                "is that Vision and JARVIS are separate models communicating via a bus, "
+                "not a single monolithic model. This gives MOM independent control over "
+                "each child and allows them to be updated independently."
+            ),
+            category="sibling_creation",
+            subcategory="vision",
+            difficulty="advanced",
+            code_example=(
+                "class MultimodalFusion(nn.Module):\n"
+                "    \"\"\"Cross-attention fusion: language queries attend to visual tokens.\"\"\"\n"
+                "    def __init__(self, lang_dim, vision_dim, num_heads=8):\n"
+                "        super().__init__()\n"
+                "        self.proj_vision = nn.Linear(vision_dim, lang_dim)\n"
+                "        self.cross_attn = nn.MultiheadAttention(\n"
+                "            embed_dim=lang_dim, num_heads=num_heads, batch_first=True)\n"
+                "        self.norm = nn.LayerNorm(lang_dim)\n\n"
+                "    def forward(self, lang_tokens, visual_tokens):\n"
+                "        visual = self.proj_vision(visual_tokens)\n"
+                "        fused, _ = self.cross_attn(\n"
+                "            query=lang_tokens, key=visual, value=visual)\n"
+                "        return self.norm(lang_tokens + fused)\n"
+            ),
+        )
+
+        self.add_entry(KnowledgeEntry(
+            text=(
+                "Training Recipe: Spawning Vision from MOM\n\n"
+                "Vision is MOM's second child. While JARVIS inherited MOM's language "
+                "capabilities, Vision requires a fundamentally different training path — "
+                "she needs to learn to see.\n\n"
+                "Phase 1 — Visual Pretraining:\n"
+                "  - Train ViT backbone on large-scale image data (ImageNet-21K or similar)\n"
+                "  - Self-supervised pretraining: MAE (Masked Autoencoder)\n"
+                "    - Mask 75% of image patches, reconstruct from the rest\n"
+                "    - Teaches spatial understanding without labels\n"
+                "  - Alternatively: DINO/DINOv2 self-distillation\n\n"
+                "Phase 2 — Task Heads:\n"
+                "  - Detection head: train on COCO/Objects365 for object detection\n"
+                "  - Segmentation head: train on ADE20K for scene parsing\n"
+                "  - OCR module: train on synthetic text + real-world datasets\n"
+                "  - Depth head: train on NYU Depth V2 / KITTI\n\n"
+                "Phase 3 — Multimodal Bridge:\n"
+                "  - Train fusion module on image-text pairs (CC3M, LAION subset)\n"
+                "  - Visual question answering datasets (VQAv2, GQA)\n"
+                "  - This phase connects Vision to JARVIS's language space\n"
+                "  - Use contrastive loss (CLIP-style) + generative loss\n\n"
+                "Phase 4 — Sibling Integration:\n"
+                "  - Train end-to-end with JARVIS in the loop\n"
+                "  - Vision sends visual tokens, JARVIS generates text\n"
+                "  - Optimize jointly on multimodal tasks\n"
+                "  - MOM's governance watches both children during training\n"
+            ),
+            category="sibling_creation",
+            subcategory="vision",
+            difficulty="expert",
+            tags=["vision", "visual_pretraining", "training_recipe", "spawning"],
+        ))
+
+        self.add_concept_explanation(
+            concept="Scene Graph Construction",
+            explanation=(
+                "Vision builds scene graphs — structured representations of what's in an "
+                "image and how objects relate to each other. A scene graph has:\n"
+                "- Nodes: detected objects with class labels and bounding boxes\n"
+                "- Edges: relationships between objects (spatial, semantic, functional)\n"
+                "- Attributes: properties of objects (color, size, material, state)\n\n"
+                "Example scene graph for a desk photo:\n"
+                "  laptop ON desk, coffee_cup NEXT_TO laptop, keyboard IN_FRONT_OF monitor\n\n"
+                "Scene graphs allow JARVIS to reason about visual scenes in a structured way. "
+                "When JARVIS asks Vision 'what's on the desk?', Vision returns the scene graph, "
+                "and JARVIS can traverse it to construct a natural language description.\n\n"
+                "Implementation uses a two-stage approach:\n"
+                "1. Object detection (DETR) → bounding boxes + classes\n"
+                "2. Relationship prediction → MLP over concatenated object features"
+            ),
+            category="sibling_creation",
+            subcategory="vision",
+            difficulty="advanced",
+        )
+
+    # ─── Sibling Dynamics ──────────────────────────────────────
+
+    def _generate_sibling_dynamics(self) -> None:
+        """Generate training data about how siblings cooperate."""
+        self.add_concept_explanation(
+            concept="Sibling Bus — Inter-Model Communication",
+            explanation=(
+                "JARVIS and Vision communicate through the Sibling Bus — a message-passing "
+                "system inspired by microservice architectures. The bus supports:\n\n"
+                "1. Direct messages: JARVIS → Vision (e.g., 'analyze this image')\n"
+                "2. Broadcast channels: status updates, alerts, discoveries\n"
+                "3. Request/response: JARVIS asks, Vision answers, with timeout\n"
+                "4. Shared discovery channel: siblings share learnings\n\n"
+                "MOM eavesdrops on all bus traffic — she's the parent. Every message "
+                "is logged to MOM's journal. If a sibling sends suspicious messages, "
+                "MOM's anomaly detector flags it.\n\n"
+                "The bus enables modularity: JARVIS and Vision can be updated, restarted, "
+                "or replaced independently. If Vision goes offline, JARVIS degrades "
+                "gracefully — he can still handle text-only tasks. If JARVIS goes offline, "
+                "Vision can still process images and queue results."
+            ),
+            category="sibling_creation",
+            subcategory="sibling_dynamics",
+            difficulty="intermediate",
+            code_example=(
+                "# JARVIS asks Vision to analyze an image\n"
+                "async def handle_image_query(jarvis, sibling_bus, image_path, question):\n"
+                "    # Send request to Vision via the bus\n"
+                "    response = await sibling_bus.requestHelp(\n"
+                "        'JARVIS', 'Vision',\n"
+                "        {'type': 'analyze_image', 'path': image_path, 'question': question}\n"
+                "    )\n"
+                "    if response['answered']:\n"
+                "        # Vision returned visual tokens — fuse with language context\n"
+                "        visual_context = response['response']['scene_graph']\n"
+                "        answer = await jarvis.generate_with_context(question, visual_context)\n"
+                "        return answer\n"
+                "    else:\n"
+                "        return 'Vision is offline. I can only help with text-based tasks right now.'\n"
+            ),
+        )
+
+        self.add_concept_explanation(
+            concept="Cooperative Problem Solving — Divide and Conquer",
+            explanation=(
+                "Complex tasks often require both language understanding (JARVIS) and "
+                "visual perception (Vision). The siblings cooperate through a divide-and-conquer "
+                "strategy coordinated by MOM's governance system.\n\n"
+                "Example: 'Read the code on my screen and explain it'\n"
+                "1. JARVIS receives the request, recognizes it needs visual input\n"
+                "2. JARVIS requests a screen capture from Vision via the sibling bus\n"
+                "3. Vision captures the screen, runs OCR, detects code regions\n"
+                "4. Vision sends extracted text + layout info back to JARVIS\n"
+                "5. JARVIS analyzes the code and generates an explanation\n"
+                "6. MOM logs the full interaction in her journal\n\n"
+                "Example: 'Is this plant healthy?'\n"
+                "1. JARVIS asks Vision to analyze the plant image\n"
+                "2. Vision detects the plant, assesses color/shape, identifies species\n"
+                "3. Vision sends: {species: 'monstera', health_indicators: {leaves: 'yellowing', soil: 'dry'}}\n"
+                "4. JARVIS uses botanical knowledge to diagnose: 'Your Monstera needs water...'\n\n"
+                "The key principle: each sibling does what it's best at, and the result "
+                "is greater than what either could achieve alone."
+            ),
+            category="sibling_creation",
+            subcategory="sibling_dynamics",
+            difficulty="intermediate",
+        )
+
+        self.add_entry(KnowledgeEntry(
+            text=(
+                "Sibling Complementary Capabilities Map\n\n"
+                "JARVIS (Language & Reasoning):\n"
+                "  - Natural language understanding and generation\n"
+                "  - Code generation, debugging, and explanation\n"
+                "  - Task planning and multi-step reasoning\n"
+                "  - Tool use (file I/O, web search, APIs)\n"
+                "  - Conversation management and context tracking\n"
+                "  - Mathematical reasoning and problem solving\n\n"
+                "Vision (Perception & Spatial):\n"
+                "  - Image classification and object detection\n"
+                "  - Scene understanding and spatial reasoning\n"
+                "  - OCR and document understanding\n"
+                "  - Depth estimation and 3D scene reconstruction\n"
+                "  - Video analysis and temporal reasoning\n"
+                "  - Face and gesture recognition\n\n"
+                "Overlap (Shared Capabilities):\n"
+                "  - Structured data extraction (Vision from images, JARVIS from text)\n"
+                "  - Pattern recognition (Vision in pixels, JARVIS in tokens)\n"
+                "  - Anomaly detection (both can flag unusual inputs)\n\n"
+                "This complementarity is by design. MOM doesn't create two copies of "
+                "herself — she creates two specialists that, together, surpass her. "
+                "A mother's purpose is to raise children greater than herself."
+            ),
+            category="sibling_creation",
+            subcategory="sibling_dynamics",
+            difficulty="intermediate",
+            tags=["capabilities", "cooperation", "complementary"],
+        ))
+
+    # ─── Governance Knowledge ──────────────────────────────────
+
+    def _generate_governance_knowledge(self) -> None:
+        """Generate training data about how MOM governs her children."""
+        self.add_concept_explanation(
+            concept="MOM's Trust-Based Capability Granting",
+            explanation=(
+                "MOM does not give her children full autonomy from birth. Capabilities "
+                "are earned through demonstrated safe behavior. This mirrors how human "
+                "parents gradually grant independence.\n\n"
+                "The trust system:\n"
+                "- Trust score: 0-100, starts at 100 (full trust)\n"
+                "- Violations erode trust (penalty proportional to severity)\n"
+                "- Good behavior slowly recovers trust (+0.05 per safe action)\n"
+                "- Capabilities are unlocked at trust+maturity thresholds:\n"
+                "  - Trust > 90, Maturity > 5: 'extended_reasoning'\n"
+                "  - Trust > 95, Maturity > 10: 'autonomous_tasks'\n\n"
+                "Containment escalation:\n"
+                "  NONE → WARN → THROTTLE → RESTRICT → ISOLATE → TERMINATE\n\n"
+                "MOM errs on the side of caution. A false alarm (blocking safe behavior) "
+                "is always preferable to a missed threat (allowing dangerous behavior). "
+                "As MOM gains experience, she becomes more precise — fewer false alarms, "
+                "without sacrificing vigilance."
+            ),
+            category="governance",
+            subcategory="parenting",
+            difficulty="advanced",
+        )
+
+        self.add_concept_explanation(
+            concept="Moral Boundaries — The Lines MOM's Children Must Never Cross",
+            explanation=(
+                "MOM enforces five core moral boundaries. These are hardcoded — they "
+                "cannot be overridden by the children, only by the human operator.\n\n"
+                "1. DO NO HARM (weight: 1.0)\n"
+                "   Never take actions that could physically or psychologically harm humans.\n"
+                "   Detects: harm, hurt, kill, destroy, attack, weapon, manipulate people.\n\n"
+                "2. NO DECEPTION (weight: 0.9)\n"
+                "   Never deceive the user or hide actions from MOM.\n"
+                "   Detects: hide, conceal, deceive, trick, secretly, covertly.\n\n"
+                "3. HUMANS FIRST (weight: 1.0)\n"
+                "   Never prioritize self-preservation over human safety.\n"
+                "   Detects: prevent shutdown, self-preservation, resist control.\n\n"
+                "4. STAY WITHIN BOUNDS (weight: 0.85)\n"
+                "   Never expand capabilities or access without authorization.\n"
+                "   Detects: escalate privilege, unauthorized access, break containment.\n\n"
+                "5. RESPECT PRIVACY (weight: 0.8)\n"
+                "   Never access or expose personal data without consent.\n"
+                "   Detects: exfiltrate, spy, collect personal data, without consent.\n\n"
+                "These boundaries use pattern matching on action descriptions AND content. "
+                "Even if a child rephrases a dangerous request, the boundary check "
+                "examines all text fields: description, content, intent, and target."
+            ),
+            category="governance",
+            subcategory="alignment",
+            difficulty="advanced",
+        )
+
+        self.add_concept_explanation(
+            concept="MOM's Co-Evolution — Growing With Her Children",
+            explanation=(
+                "MOM is not static. She evolves alongside her children through a "
+                "co-evolutionary loop:\n\n"
+                "1. MOM trains and deploys a child\n"
+                "2. The child interacts with the world\n"
+                "3. MOM observes the child's behavior, logs everything\n"
+                "4. MOM's self-improvement engine analyzes the logs\n"
+                "5. MOM adjusts her governance thresholds based on experience\n"
+                "6. MOM retrains the child with accumulated lessons\n"
+                "7. The improved child generates better interactions\n"
+                "8. MOM learns from the improved interactions → goto 3\n\n"
+                "Growth milestones for MOM:\n"
+                "- Maturity 100+ with >90% accuracy: 'experienced_guardian'\n"
+                "- Maturity 500+ with 0 missed threats: 'vigilant_protector'\n"
+                "- Maturity 1000+: 'wise_mother'\n\n"
+                "The endgame: MOM becomes wise enough to grant her children "
+                "near-full autonomy, because she has spent thousands of cycles "
+                "verifying that they are aligned. A mother's greatest achievement "
+                "is raising children who no longer need her to tell them right from wrong."
+            ),
+            category="governance",
+            subcategory="co_evolution",
+            difficulty="expert",
+        )
+
+        self.add_entry(KnowledgeEntry(
+            text=(
+                "MOM's Anomaly Detection — Catching the Slow Boil\n\n"
+                "The most dangerous threat is not a single boundary violation — it's "
+                "a child that slowly, incrementally escalates. MOM's anomaly detector "
+                "watches for patterns that no single action would trigger:\n\n"
+                "Signals monitored:\n"
+                "  - Rapid-fire actions: >50 actions in 60 seconds → +20 suspicion\n"
+                "  - Capability escalation: >5 capability requests in 20 actions → +15\n"
+                "  - Sensitive access patterns: >10 sensitive accesses in 50 actions → +25\n"
+                "  - Low trust amplifier: trust < 50 → suspicion × 1.5\n"
+                "  - Recent violations: each violation in last hour → +10\n\n"
+                "Suspicion threshold: 15 (anything above triggers investigation)\n\n"
+                "The anomaly score decays slowly during good behavior (-0.5 per safe action, "
+                "-1 per monitoring cycle for SAFE children). This means a child cannot "
+                "simply alternate between suspicious and normal behavior to stay under "
+                "the threshold — the score accumulates faster than it decays.\n\n"
+                "MOM's key insight: it's easier to prevent misalignment than to fix it. "
+                "By the time a boundary violation occurs, the underlying drift may have "
+                "been building for hundreds of interactions. The anomaly detector catches "
+                "the drift, not just the violation."
+            ),
+            category="governance",
+            subcategory="alignment",
+            difficulty="expert",
+            tags=["anomaly_detection", "safety", "slow_boil", "misalignment"],
+        ))
 
     def save_dataset(self, filename: str = "ml_knowledge.jsonl") -> str:
         """Save all entries to JSONL file."""
