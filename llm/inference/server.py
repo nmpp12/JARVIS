@@ -22,7 +22,7 @@ from typing import Optional, List
 
 from .generator import TextGenerator
 from ..tools.sandbox import Sandbox, SandboxConfig
-from ..tools.code_generator import CodeGenerator
+from ..tools.code_generator import CodeGenerator, ASI_IDENTITY_PROMPT
 from ..tools.tool_registry import ToolRegistry
 
 
@@ -180,13 +180,15 @@ def create_app(
         top_p = data.get("top_p", 0.9)
         stream = data.get("stream", False)
 
-        # Format messages into a prompt
-        prompt_parts = []
+        # Format messages into a prompt, injecting ASI identity
+        prompt_parts = [f"System: {ASI_IDENTITY_PROMPT}"]
+        has_system = False
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
             if role == "system":
                 prompt_parts.append(f"System: {content}")
+                has_system = True
             elif role == "user":
                 prompt_parts.append(f"User: {content}")
             elif role == "assistant":

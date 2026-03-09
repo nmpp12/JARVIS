@@ -229,7 +229,8 @@ class MOMWindow(QMainWindow):
         params = self.settings_widget.get_generation_params()
 
         # Build prompt with system context
-        prompt = f"System: You are MOM, a helpful AI assistant that can write and execute code.\n\nUser: {text}\n\nAssistant:"
+        from ..tools.code_generator import ASI_IDENTITY_PROMPT
+        prompt = f"System: {ASI_IDENTITY_PROMPT}\n\nUser: {text}\n\nAssistant:"
 
         self.progress.setVisible(True)
         self.progress.setRange(0, 0)  # indeterminate
