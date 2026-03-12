@@ -119,19 +119,26 @@ class GroupedQueryAttention(nn.Module):
             k = k.repeat_interleave(self.num_groups, dim=1)
             v = v.repeat_interleave(self.num_groups, dim=1)
 
+        # Normalize mask to boolean (True = attend, False = mask out).
+        # Callers may pass float 0/1 tensors or bool tensors; we standardize here
+        # so both the Flash and manual paths see identical semantics.
+        bool_mask: Optional[torch.Tensor] = None
+        if mask is not None:
+            bool_mask = mask.bool() if mask.dtype != torch.bool else mask
+
         # Attention computation
         if self.use_flash and hasattr(F, "scaled_dot_product_attention"):
             attn_out = F.scaled_dot_product_attention(
                 q, k, v,
-                attn_mask=mask,
+                attn_mask=bool_mask,        # bool: True = attend
                 dropout_p=self.attn_dropout.p if self.training else 0.0,
-                is_causal=(mask is None and kv_cache is None),
+                is_causal=(bool_mask is None and kv_cache is None),
             )
         else:
             scale = 1.0 / math.sqrt(self.head_dim)
             scores = torch.matmul(q, k.transpose(-2, -1)) * scale
-            if mask is not None:
-                scores = scores.masked_fill(mask == 0, float("-inf"))
+            if bool_mask is not None:
+                scores = scores.masked_fill(~bool_mask, float("-inf"))
             elif kv_cache is None:
                 # Causal mask
                 causal = torch.tril(torch.ones(T, T, device=x.device, dtype=torch.bool))

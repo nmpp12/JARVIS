@@ -151,28 +151,38 @@ class SpeculativeDecoder:
             if eos_id in accepted:
                 break
 
-            # Update KV caches to reflect accepted tokens
+            # Update KV caches to reflect accepted tokens only.
+            # main_verify_kv has shape [..., prev_len + K, ...] after verifying K candidates.
+            # We need to keep only prev_len + num_accepted positions.
             num_accepted = len(accepted)
-            # Trim main KV cache to only include accepted positions
-            main_kv = self._trim_kv_cache(main_verify_kv, num_accepted)
+            prev_len = main_kv[0][0].shape[2] if main_kv and main_kv[0] is not None else 0
+            main_kv = self._trim_kv_cache(main_verify_kv, prev_len + num_accepted)
 
-            # Re-prefill draft model from last accepted position
+            # Re-prefill draft model from accepted tokens so its KV state is in sync.
             accepted_tensor = torch.tensor([accepted], device=self.device)
             draft_out = self.draft_model(input_ids=accepted_tensor, kv_caches=draft_kv, use_cache=True)
             draft_kv = draft_out["kv_caches"]
 
-            # Main model's logits for next iteration
+            # Main model logit for the next step = prediction at the last accepted position.
             main_logits = verify_logits[:, num_accepted - 1:num_accepted, :]
 
         response_ids = generated[len(input_ids[0]):]
         return self.tokenizer.decode(response_ids, skip_special=True)
 
-    def _trim_kv_cache(self, kv_caches, num_keep):
-        """Trim KV cache to only keep the first num_keep new positions."""
+    def _trim_kv_cache(self, kv_caches, total_length: int):
+        """Trim every layer's KV cache to exactly total_length positions.
+
+        Args:
+            kv_caches: list of (k, v) tensors with shape (B, H, seq_len, head_dim)
+            total_length: number of positions to retain (prefix of the sequence)
+        """
         trimmed = []
-        for k, v in kv_caches:
-            trimmed.append((k[:, :, :-(len(kv_caches) - num_keep + 1) or None],
-                          v[:, :, :-(len(kv_caches) - num_keep + 1) or None]))
+        for layer_kv in kv_caches:
+            if layer_kv is None:
+                trimmed.append(None)
+                continue
+            k, v = layer_kv
+            trimmed.append((k[:, :, :total_length], v[:, :, :total_length]))
         return trimmed
 
     def _sample(self, logits, temperature, top_k, top_p):
