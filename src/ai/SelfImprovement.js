@@ -9,7 +9,8 @@ export class SelfImprovement {
         this.performanceMetrics = {
             responseTime: [],
             accuracy: [],
-            userSatisfaction: []
+            userSatisfaction: [],
+            responseQuality: [],
         };
     }
 
@@ -181,46 +182,41 @@ export class SelfImprovement {
         return { implemented, summary };
     }
 
-    async applyImprovement(improvement) {
-        // This is a simplified implementation
-        // In a real system, this would make actual code changes
-        
-        switch (improvement.type) {
-            case 'performance':
-                return {
-                    success: true,
-                    description: `Optimized performance in ${improvement.file}`
-                };
-            case 'error_handling':
-                return {
-                    success: true,
-                    description: `Added error handling in ${improvement.file}`
-                };
-            case 'complexity':
-                return {
-                    success: true,
-                    description: `Refactored complex function in ${improvement.file}`
-                };
-            default:
-                return { success: false, description: 'Unknown improvement type' };
-        }
+    async applyImprovement(_improvement) {
+        // Automatic code modification is not implemented.
+        // analyzeCurrentCode() surfaces suggestions for human review only.
+        return { success: false, description: 'Auto-apply not implemented — review suggestions manually' };
     }
 
-    async analyzeInteraction(input, response) {
-        // Analyze the interaction for learning opportunities
+    /**
+     * Record an interaction. Called by AIAssistant after each response.
+     * @param {string} input - The user's raw input text.
+     * @param {string} responseText - The assistant's response text.
+     */
+    recordInteraction(input, responseText) {
+        const response = { text: responseText };
         const analysis = {
             timestamp: new Date().toISOString(),
             input,
-            response: response.text,
+            response: responseText,
             inputType: this.classifyInput(input),
             responseQuality: this.assessResponseQuality(response),
-            learningOpportunity: this.identifyLearningOpportunity(input, response)
+            learningOpportunity: this.identifyLearningOpportunity(input, response),
         };
 
         this.improvementHistory.push(analysis);
-        
-        // Update performance metrics
+
+        // Keep only the last 100 entries
+        if (this.improvementHistory.length > 100) {
+            this.improvementHistory = this.improvementHistory.slice(-100);
+        }
+
         this.updatePerformanceMetrics(analysis);
+    }
+
+    async analyzeInteraction(input, response) {
+        // Kept for backwards compatibility — prefer recordInteraction().
+        this.recordInteraction(input, typeof response === 'string' ? response : response.text);
     }
 
     classifyInput(input) {
@@ -277,15 +273,15 @@ export class SelfImprovement {
     }
 
     getStatus() {
-        const avgQuality = this.performanceMetrics.responseQuality.length > 0 ?
-            this.performanceMetrics.responseQuality.reduce((a, b) => a + b, 0) / 
-            this.performanceMetrics.responseQuality.length : 0;
+        const avgQuality = this.performanceMetrics.responseQuality.length > 0
+            ? this.performanceMetrics.responseQuality.reduce((a, b) => a + b, 0) /
+              this.performanceMetrics.responseQuality.length
+            : 0;
 
         return {
             enabled: this.enabled,
-            improvementsApplied: this.improvementHistory.filter(h => h.implemented > 0).length,
             averageResponseQuality: avgQuality.toFixed(2),
-            totalInteractions: this.improvementHistory.length
+            totalInteractions: this.improvementHistory.length,
         };
     }
 }
