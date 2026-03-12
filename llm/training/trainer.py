@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 
 from ..model.config import ModelConfig
 from ..model.transformer import MOMTransformer
-from .scheduler import CosineWarmupScheduler
+from .scheduler import CosineWarmupScheduler, WarmupStableDecayScheduler
 
 
 @dataclass
@@ -136,12 +136,23 @@ class Trainer:
             len(train_loader) * config.num_epochs // config.gradient_accumulation_steps
         )
         self.total_steps = total_steps
-        self.scheduler = CosineWarmupScheduler(
-            self.optimizer,
-            warmup_steps=config.warmup_steps,
-            total_steps=total_steps,
-            min_lr_ratio=config.min_lr / config.learning_rate,
-        )
+        if config.lr_schedule == "wsd":
+            stable_steps = int(total_steps * 0.7)
+            decay_steps = total_steps - config.warmup_steps - stable_steps
+            self.scheduler = WarmupStableDecayScheduler(
+                self.optimizer,
+                warmup_steps=config.warmup_steps,
+                stable_steps=stable_steps,
+                decay_steps=max(1, decay_steps),
+                min_lr_ratio=config.min_lr / config.learning_rate,
+            )
+        else:
+            self.scheduler = CosineWarmupScheduler(
+                self.optimizer,
+                warmup_steps=config.warmup_steps,
+                total_steps=total_steps,
+                min_lr_ratio=config.min_lr / config.learning_rate,
+            )
 
         # Mixed precision
         self.scaler = None

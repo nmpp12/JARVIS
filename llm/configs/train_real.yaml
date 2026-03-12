@@ -25,7 +25,7 @@ training:
   num_epochs: 200                 # 200 epochs × 17 steps/epoch = ~3400 steps
   max_steps: 3000
   warmup_steps: 100
-  lr_schedule: cosine
+  lr_schedule: wsd
 
   dtype: float32
   use_amp: false
