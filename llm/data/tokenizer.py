@@ -119,21 +119,25 @@ class MOMTokenizer:
     def _init_backend(self) -> None:
         """Initialize the tokenizer backend."""
         if self.backend == "auto":
+            # sentencepiece selected only if a trained model file is available;
+            # the library being importable is not enough — it needs a .model file.
             try:
-                import sentencepiece
-                self.backend = "sentencepiece"
+                import tiktoken
+                self.backend = "tiktoken"
             except ImportError:
-                try:
-                    import tiktoken
-                    self.backend = "tiktoken"
-                except ImportError:
-                    self.backend = "character"
+                self.backend = "character"
 
         if self.backend == "tiktoken":
-            import tiktoken
-            self._tokenizer = tiktoken.get_encoding("cl100k_base")
+            try:
+                import tiktoken
+                self._tokenizer = tiktoken.get_encoding("cl100k_base")
+            except Exception:
+                # Encoding file unavailable (e.g. no network); fall back to character
+                self.backend = "character"
+                self._build_char_vocab()
         elif self.backend == "character":
             self._build_char_vocab()
+        # sentencepiece: model must be loaded explicitly via load() or train()
 
     def _build_char_vocab(self) -> None:
         """Build a character-level vocabulary as fallback."""

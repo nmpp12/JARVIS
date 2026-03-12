@@ -37,10 +37,11 @@ class CosineWarmupScheduler(_LRScheduler):
             # Linear warmup
             scale = step / max(1, self.warmup_steps)
         else:
-            # Cosine decay
-            progress = (step - self.warmup_steps) / max(
+            # Cosine decay — clamp progress to [0, 1] to prevent LR from
+            # cycling back up when training runs past total_steps
+            progress = min(1.0, (step - self.warmup_steps) / max(
                 1, self.total_steps - self.warmup_steps
-            )
+            ))
             scale = self.min_lr_ratio + 0.5 * (1.0 - self.min_lr_ratio) * (
                 1.0 + math.cos(math.pi * progress)
             )

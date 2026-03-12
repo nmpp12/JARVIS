@@ -1,0 +1,32 @@
+# MOM Smoke-Test Config — CPU, tiny model, minimal data
+# Purpose: verify the full train loop works end-to-end before a real run.
+
+model:
+  preset: tiny             # 256D, 6L, 8H — ~12M params
+  max_seq_len: 256
+  use_flash_attention: false
+  use_bitnet: false        # keep fp32 to isolate issues
+  gradient_checkpointing: false
+
+training:
+  learning_rate: 3.0e-4
+  min_lr: 3.0e-5
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  max_grad_norm: 1.0
+
+  batch_size: 1                   # 1 sample per mini-batch
+  gradient_accumulation_steps: 1  # every mini-batch = 1 optimizer step
+  num_epochs: 3
+  max_steps: 100
+  warmup_steps: 10               # short warmup for tiny run
+  lr_schedule: cosine
+
+  dtype: float32
+  use_amp: false                 # no CUDA
+
+  checkpoint_dir: ./output/checkpoints/mom-smoke
+  save_every_steps: 50
+  eval_every_steps: 50
+  log_every_steps: 10

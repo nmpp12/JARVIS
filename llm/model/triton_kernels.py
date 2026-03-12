@@ -17,12 +17,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional
 
-# Try to import Triton
+# Try to import Triton — only usable when CUDA is available
 _TRITON_AVAILABLE = False
 try:
+    import torch as _torch
     import triton
     import triton.language as tl
-    _TRITON_AVAILABLE = True
+    _TRITON_AVAILABLE = _torch.cuda.is_available()
 except ImportError:
     pass
 

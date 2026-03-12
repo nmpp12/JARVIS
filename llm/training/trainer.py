@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 
 from ..model.config import ModelConfig
 from ..model.transformer import MOMTransformer
-from .scheduler import CosineWarmupScheduler
+from .scheduler import CosineWarmupScheduler, WarmupStableDecayScheduler
 
 
 @dataclass
@@ -61,6 +61,10 @@ class TrainingConfig:
     save_every_steps: int = 1000
     eval_every_steps: int = 500
     log_every_steps: int = 10
+
+    # Regularization
+    label_smoothing: float = 0.0  # 0.1 is a good starting point
+    early_stopping_patience: int = 0  # 0 = disabled; N = stop after N evals with no improvement
 
     # Distributed
     distributed: bool = False
@@ -132,12 +136,23 @@ class Trainer:
             len(train_loader) * config.num_epochs // config.gradient_accumulation_steps
         )
         self.total_steps = total_steps
-        self.scheduler = CosineWarmupScheduler(
-            self.optimizer,
-            warmup_steps=config.warmup_steps,
-            total_steps=total_steps,
-            min_lr_ratio=config.min_lr / config.learning_rate,
-        )
+        if config.lr_schedule == "wsd":
+            stable_steps = int(total_steps * 0.7)
+            decay_steps = total_steps - config.warmup_steps - stable_steps
+            self.scheduler = WarmupStableDecayScheduler(
+                self.optimizer,
+                warmup_steps=config.warmup_steps,
+                stable_steps=stable_steps,
+                decay_steps=max(1, decay_steps),
+                min_lr_ratio=config.min_lr / config.learning_rate,
+            )
+        else:
+            self.scheduler = CosineWarmupScheduler(
+                self.optimizer,
+                warmup_steps=config.warmup_steps,
+                total_steps=total_steps,
+                min_lr_ratio=config.min_lr / config.learning_rate,
+            )
 
         # Mixed precision
         self.scaler = None
@@ -149,6 +164,7 @@ class Trainer:
         self.epoch = 0
         self.best_eval_loss = float("inf")
         self.training_log: list = []
+        self._evals_without_improvement = 0  # for early stopping
 
         # Create output directories
         os.makedirs(config.checkpoint_dir, exist_ok=True)
@@ -213,6 +229,7 @@ class Trainer:
         tokens_processed = 0
         running_loss = 0.0
         num_loss_updates = 0
+        early_stop = False
 
         for epoch in range(self.config.num_epochs):
             self.epoch = epoch
@@ -226,10 +243,12 @@ class Trainer:
                 # Forward pass with mixed precision
                 if self.config.use_amp and self.config.dtype != "float32":
                     with torch.amp.autocast("cuda", dtype=self.config.torch_dtype):
-                        outputs = self.model(input_ids=input_ids, labels=labels)
+                        outputs = self.model(input_ids=input_ids, labels=labels,
+                                             label_smoothing=self.config.label_smoothing)
                         loss = outputs["loss"] / self.config.gradient_accumulation_steps
                 else:
-                    outputs = self.model(input_ids=input_ids, labels=labels)
+                    outputs = self.model(input_ids=input_ids, labels=labels,
+                                         label_smoothing=self.config.label_smoothing)
                     loss = outputs["loss"] / self.config.gradient_accumulation_steps
 
                 # Backward pass
@@ -299,6 +318,7 @@ class Trainer:
                         num_loss_updates = 0
 
                     # Evaluation
+                    early_stop = False
                     if (
                         self.eval_loader
                         and self.global_step % self.config.eval_every_steps == 0
@@ -308,16 +328,30 @@ class Trainer:
 
                         if eval_loss < self.best_eval_loss:
                             self.best_eval_loss = eval_loss
+                            self._evals_without_improvement = 0
                             self.save_checkpoint("best")
+                        else:
+                            self._evals_without_improvement += 1
+                            patience = self.config.early_stopping_patience
+                            if patience > 0 and self._evals_without_improvement >= patience:
+                                print(
+                                    f"\n  Early stopping: eval loss hasn't improved for "
+                                    f"{patience} evaluations (best={self.best_eval_loss:.4f})."
+                                )
+                                early_stop = True
 
                     # Checkpointing
                     if self.global_step % self.config.save_every_steps == 0:
                         self.save_checkpoint(f"step_{self.global_step}")
 
-                    # Max steps check
+                    # Max steps / early stopping check
+                    if early_stop:
+                        break
                     if self.config.max_steps and self.global_step >= self.config.max_steps:
                         break
 
+            if early_stop:
+                break
             if self.config.max_steps and self.global_step >= self.config.max_steps:
                 break
 

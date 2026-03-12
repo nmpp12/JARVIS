@@ -26,3 +26,11 @@ env/
 .idea/
 .vscode/
 *.swp
+
+# Training outputs (checkpoints, data, logs)
+output/
+checkpoints/
+data/
+*.pt
+*.bin
+logs/
