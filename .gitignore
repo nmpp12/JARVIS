@@ -34,3 +34,7 @@ data/
 *.pt
 *.bin
 logs/
+
+# Allow Python source files in llm/data/ (the data/ rule above is too broad)
+!llm/data/
+!llm/data/*.py
