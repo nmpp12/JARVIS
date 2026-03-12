@@ -123,40 +123,74 @@ WIKI_ARTICLES = [
 # ── GitHub repos to fetch READMEs + key files from ───────────────────────────
 GITHUB_REPOS = [
     # Foundational implementations
-    ("karpathy/nanoGPT",         "deep_learning",         "architectures"),
-    ("karpathy/minGPT",          "deep_learning",         "architectures"),
-    ("karpathy/micrograd",       "foundations",           "optimization"),
-    ("karpathy/makemore",        "large_language_models", "architectures"),
-    ("karpathy/nn-zero-to-hero", "deep_learning",         "training"),
-    # Major frameworks (README gives dense practical knowledge)
-    ("huggingface/transformers", "large_language_models", "architectures"),
-    ("huggingface/peft",         "large_language_models", "efficiency"),
-    ("huggingface/trl",          "large_language_models", "training"),
-    ("huggingface/diffusers",    "generative_models",     "diffusion"),
-    ("huggingface/accelerate",   "systems",               "distributed"),
-    # Efficient attention
-    ("Dao-AILab/flash-attention","deep_learning",         "attention"),
-    # Quantization
-    ("TimDettmers/bitsandbytes", "large_language_models", "efficiency"),
-    ("ggerganov/llama.cpp",      "large_language_models", "efficiency"),
+    ("karpathy/nanoGPT",              "deep_learning",         "architectures"),
+    ("karpathy/minGPT",               "deep_learning",         "architectures"),
+    ("karpathy/micrograd",            "foundations",           "optimization"),
+    ("karpathy/makemore",             "large_language_models", "architectures"),
+    ("karpathy/nn-zero-to-hero",      "deep_learning",         "training"),
+    # Major frameworks
+    ("huggingface/transformers",      "large_language_models", "architectures"),
+    ("huggingface/peft",              "large_language_models", "efficiency"),
+    ("huggingface/trl",               "large_language_models", "training"),
+    ("huggingface/diffusers",         "generative_models",     "diffusion"),
+    ("huggingface/accelerate",        "systems",               "distributed"),
+    ("huggingface/tokenizers",        "large_language_models", "tokenization"),
+    # PyTorch ecosystem
+    ("pytorch/pytorch",               "deep_learning",         "training"),
+    ("pytorch/torchtune",             "large_language_models", "training"),
+    ("pytorch/torchao",               "large_language_models", "efficiency"),
+    # JAX ecosystem
+    ("google/jax",                    "deep_learning",         "training"),
+    ("google/flax",                   "deep_learning",         "architectures"),
+    ("deepmind/optax",                "foundations",           "optimization"),
+    # Efficient attention & inference
+    ("Dao-AILab/flash-attention",     "deep_learning",         "attention"),
+    ("vllm-project/vllm",             "large_language_models", "efficiency"),
+    ("unslothai/unsloth",             "large_language_models", "efficiency"),
+    # Quantization & compression
+    ("TimDettmers/bitsandbytes",      "large_language_models", "efficiency"),
+    ("ggerganov/llama.cpp",           "large_language_models", "efficiency"),
+    ("casper-hansen/AutoAWQ",         "large_language_models", "efficiency"),
+    ("IST-DASLab/gptq",               "large_language_models", "efficiency"),
     # Training frameworks
-    ("microsoft/DeepSpeed",      "systems",               "distributed"),
-    ("Lightning-AI/pytorch-lightning", "systems",         "training"),
+    ("microsoft/DeepSpeed",           "systems",               "distributed"),
+    ("NVIDIA/Megatron-LM",            "systems",               "distributed"),
+    ("Lightning-AI/pytorch-lightning","systems",               "training"),
+    ("EleutherAI/gpt-neox",           "large_language_models", "architectures"),
+    # Model implementations
+    ("facebookresearch/llama",        "large_language_models", "architectures"),
+    ("mistralai/mistral-src",         "large_language_models", "architectures"),
+    ("allenai/OLMo",                  "large_language_models", "architectures"),
+    ("microsoft/LoRA",                "large_language_models", "efficiency"),
+    ("artidoro/qlora",                "large_language_models", "efficiency"),
+    # Vision & multimodal
+    ("openai/CLIP",                   "deep_learning",         "architectures"),
+    ("mlfoundations/open_clip",       "deep_learning",         "architectures"),
+    ("facebookresearch/sam",          "deep_learning",         "architectures"),
+    ("openai/whisper",                "deep_learning",         "architectures"),
+    # Evaluation
+    ("EleutherAI/lm-evaluation-harness", "large_language_models", "training"),
     # RL
-    ("openai/baselines",         "reinforcement_learning","advanced"),
-    ("DLR-RM/stable-baselines3", "reinforcement_learning","advanced"),
+    ("openai/baselines",              "reinforcement_learning","advanced"),
+    ("DLR-RM/stable-baselines3",      "reinforcement_learning","advanced"),
+    ("google-deepmind/acme",          "reinforcement_learning","advanced"),
     # Diffusion
-    ("CompVis/stable-diffusion", "generative_models",     "diffusion"),
-    ("openai/consistency_models","generative_models",     "diffusion"),
+    ("CompVis/stable-diffusion",      "generative_models",     "diffusion"),
+    ("openai/consistency_models",     "generative_models",     "diffusion"),
     # Classic ML
-    ("scikit-learn/scikit-learn","machine_learning",      "supervised"),
+    ("scikit-learn/scikit-learn",     "machine_learning",      "supervised"),
+    ("XGBoost/xgboost",               "machine_learning",      "supervised"),
     # Tokenizers
-    ("openai/tiktoken",          "large_language_models", "tokenization"),
-    ("google/sentencepiece",     "large_language_models", "tokenization"),
+    ("openai/tiktoken",               "large_language_models", "tokenization"),
+    ("google/sentencepiece",          "large_language_models", "tokenization"),
     # Mamba / SSMs
-    ("state-spaces/mamba",       "deep_learning",         "architectures"),
-    # Alignment
-    ("openai/openai-cookbook",   "large_language_models", "training"),
+    ("state-spaces/mamba",            "deep_learning",         "architectures"),
+    # Alignment & RLHF
+    ("openai/openai-cookbook",        "large_language_models", "training"),
+    ("anthropics/anthropic-cookbook", "large_language_models", "training"),
+    # Learning resources
+    ("mlabonne/llm-course",           "large_language_models", "overview"),
+    ("rasbt/LLMs-from-scratch",       "large_language_models", "architectures"),
 ]
 
 WIKI_CATEGORY_MAP = {
