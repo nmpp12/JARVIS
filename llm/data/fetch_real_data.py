@@ -218,42 +218,13 @@ def _categorize_arxiv(title: str, abstract: str) -> tuple[str, str]:
     return "deep_learning", "architectures"
 
 
-def fetch_arxiv_paper(paper_id: str, session: requests.Session) -> dict | None:
-    url = f"https://export.arxiv.org/api/query?id_list={paper_id}&max_results=1"
-    for attempt in range(4):
-        try:
-            resp = session.get(url, timeout=15)
-            if resp.status_code == 429:
-                wait = 2 ** (attempt + 1)
-                print(f"  [arxiv] {paper_id}: rate limited, retrying in {wait}s...")
-                time.sleep(wait)
-                continue
-            resp.raise_for_status()
-            break
-        except Exception as e:
-            if attempt == 3:
-                print(f"  [arxiv] {paper_id}: {e}")
-                return None
-            wait = 2 ** (attempt + 1)
-            time.sleep(wait)
-    else:
-        print(f"  [arxiv] {paper_id}: failed after retries")
-        return None
-
-    ns = {"atom": "http://www.w3.org/2005/Atom"}
-    root = ET.fromstring(resp.text)
-    entry = root.find("atom:entry", ns)
-    if entry is None:
-        return None
-
+def _parse_arxiv_entry(entry, ns, paper_id: str) -> dict | None:
     title = (entry.findtext("atom:title", "", ns) or "").strip().replace("\n", " ")
     abstract = (entry.findtext("atom:summary", "", ns) or "").strip().replace("\n", " ")
     authors = [a.findtext("atom:name", "", ns) for a in entry.findall("atom:author", ns)][:5]
     year = (entry.findtext("atom:published", "", ns) or "")[:4]
-
     if not title or not abstract:
         return None
-
     category, subcategory = _categorize_arxiv(title, abstract)
     text = (
         f"<paper>\n"
@@ -272,6 +243,51 @@ def fetch_arxiv_paper(paper_id: str, session: requests.Session) -> dict | None:
         "source": f"arxiv:{paper_id}",
         "tags": [title],
     }
+
+
+def fetch_arxiv_batch(paper_ids: list[str], session: requests.Session) -> dict[str, dict]:
+    """Fetch multiple ArXiv papers in a single API call. Returns {paper_id: entry}."""
+    url = f"https://export.arxiv.org/api/query?id_list={','.join(paper_ids)}&max_results={len(paper_ids)}"
+    for attempt in range(5):
+        try:
+            resp = session.get(url, timeout=30)
+            if resp.status_code == 429:
+                wait = 2 ** (attempt + 2)
+                print(f"  [arxiv] batch rate limited, retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            break
+        except Exception as e:
+            if attempt == 4:
+                print(f"  [arxiv] batch failed: {e}")
+                return {}
+            wait = 2 ** (attempt + 2)
+            time.sleep(wait)
+    else:
+        print("  [arxiv] batch failed after retries")
+        return {}
+
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    root = ET.fromstring(resp.text)
+    results = {}
+    for entry_el in root.findall("atom:entry", ns):
+        # Extract paper ID from the <id> tag
+        raw_id = (entry_el.findtext("atom:id", "", ns) or "").strip()
+        # raw_id looks like http://arxiv.org/abs/1706.03762v5
+        pid = raw_id.split("/abs/")[-1].split("v")[0] if "/abs/" in raw_id else ""
+        if not pid:
+            continue
+        parsed = _parse_arxiv_entry(entry_el, ns, pid)
+        if parsed:
+            results[pid] = parsed
+    return results
+
+
+def fetch_arxiv_paper(paper_id: str, session: requests.Session) -> dict | None:
+    """Fetch a single ArXiv paper (fallback for individual retries)."""
+    result = fetch_arxiv_batch([paper_id], session)
+    return result.get(paper_id)
 
 
 def fetch_wikipedia_article(title: str, session: requests.Session) -> dict | None:
@@ -437,20 +453,32 @@ def main():
     if do_arxiv:
         print(f"\nFetching {len(ARXIV_PAPER_IDS)} ArXiv papers...")
         fetched = skipped = failed = 0
+        ids_to_fetch = []
         for paper_id in ARXIV_PAPER_IDS:
             src = f"arxiv:{paper_id}"
             if src in existing_sources:
                 skipped += 1
-                continue
-            entry = fetch_arxiv_paper(paper_id, session)
-            if entry:
-                entries.append(entry)
-                existing_sources.add(src)
-                fetched += 1
-                print(f"  [{fetched:3d}] {entry['tags'][0][:70]}")
             else:
-                failed += 1
-            time.sleep(args.delay)
+                ids_to_fetch.append(paper_id)
+
+        # Fetch in batches of 20 to stay within URL length limits
+        BATCH_SIZE = 20
+        for i in range(0, len(ids_to_fetch), BATCH_SIZE):
+            batch = ids_to_fetch[i:i + BATCH_SIZE]
+            print(f"  Fetching batch {i // BATCH_SIZE + 1} ({len(batch)} papers)...")
+            results = fetch_arxiv_batch(batch, session)
+            for paper_id in batch:
+                entry = results.get(paper_id)
+                if entry:
+                    entries.append(entry)
+                    existing_sources.add(f"arxiv:{paper_id}")
+                    fetched += 1
+                    print(f"  [{fetched:3d}] {entry['tags'][0][:70]}")
+                else:
+                    failed += 1
+                    print(f"  [FAIL] {paper_id}")
+            if i + BATCH_SIZE < len(ids_to_fetch):
+                time.sleep(args.delay)
         print(f"  ArXiv: {fetched} fetched, {skipped} skipped, {failed} failed")
 
     # ── Wikipedia ─────────────────────────────────────────────────────────────
