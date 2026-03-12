@@ -384,7 +384,7 @@ def load_existing(path: str) -> list[dict]:
 
 def save_jsonl(entries: list[dict], path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         for e in entries:
             f.write(json.dumps(e, ensure_ascii=False) + "\n")
 
