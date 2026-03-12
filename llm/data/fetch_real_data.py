@@ -138,7 +138,7 @@ GITHUB_REPOS = [
     # PyTorch ecosystem
     ("pytorch/pytorch",               "deep_learning",         "training"),
     ("pytorch/torchtune",             "large_language_models", "training"),
-    ("pytorch/torchao",               "large_language_models", "efficiency"),
+    ("pytorch/ao",                    "large_language_models", "efficiency"),
     # JAX ecosystem
     ("google/jax",                    "deep_learning",         "training"),
     ("google/flax",                   "deep_learning",         "architectures"),
@@ -166,7 +166,7 @@ GITHUB_REPOS = [
     # Vision & multimodal
     ("openai/CLIP",                   "deep_learning",         "architectures"),
     ("mlfoundations/open_clip",       "deep_learning",         "architectures"),
-    ("facebookresearch/sam",          "deep_learning",         "architectures"),
+    ("facebookresearch/segment-anything", "deep_learning",      "architectures"),
     ("openai/whisper",                "deep_learning",         "architectures"),
     # Evaluation
     ("EleutherAI/lm-evaluation-harness", "large_language_models", "training"),
@@ -179,7 +179,7 @@ GITHUB_REPOS = [
     ("openai/consistency_models",     "generative_models",     "diffusion"),
     # Classic ML
     ("scikit-learn/scikit-learn",     "machine_learning",      "supervised"),
-    ("XGBoost/xgboost",               "machine_learning",      "supervised"),
+    ("dmlc/xgboost",                  "machine_learning",      "supervised"),
     # Tokenizers
     ("openai/tiktoken",               "large_language_models", "tokenization"),
     ("google/sentencepiece",          "large_language_models", "tokenization"),
