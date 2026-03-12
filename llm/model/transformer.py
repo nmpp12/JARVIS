@@ -285,6 +285,7 @@ class MOMTransformer(nn.Module):
         labels: Optional[torch.Tensor] = None,
         kv_caches: Optional[list] = None,
         use_cache: bool = False,
+        label_smoothing: float = 0.0,
     ) -> dict:
         B, T = input_ids.shape
 
@@ -364,6 +365,7 @@ class MOMTransformer(nn.Module):
                 shift_logits.view(-1, self.config.vocab_size),
                 shift_labels.view(-1),
                 ignore_index=-100,
+                label_smoothing=label_smoothing,
             )
             # Add early exit training loss
             if self.early_exit_manager is not None and exit_logits_list:

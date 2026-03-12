@@ -104,6 +104,14 @@ def main():
         model_config.gradient_checkpointing = model_cfg["gradient_checkpointing"]
     if "use_bitnet" in model_cfg:
         model_config.use_bitnet = model_cfg["use_bitnet"]
+    if "use_triton_kernels" in model_cfg:
+        model_config.use_triton_kernels = model_cfg["use_triton_kernels"]
+    if "dropout" in model_cfg:
+        model_config.dropout = model_cfg["dropout"]
+    if "attention_dropout" in model_cfg:
+        model_config.attention_dropout = model_cfg["attention_dropout"]
+    if "embed_dropout" in model_cfg:
+        model_config.embed_dropout = model_cfg["embed_dropout"]
 
     print(f"\nModel: {model_config}")
     if model_config.use_bitnet:
@@ -133,6 +141,8 @@ def main():
         eval_every_steps=train_cfg.get("eval_every_steps", 500),
         log_every_steps=train_cfg.get("log_every_steps", 10),
         gradient_checkpointing=model_cfg.get("gradient_checkpointing", False),
+        label_smoothing=train_cfg.get("label_smoothing", 0.0),
+        early_stopping_patience=train_cfg.get("early_stopping_patience", 0),
         wandb_project=train_cfg.get("wandb_project"),
         wandb_run_name=train_cfg.get("wandb_run_name"),
         log_dir=os.path.join(args.output_dir, "logs"),
