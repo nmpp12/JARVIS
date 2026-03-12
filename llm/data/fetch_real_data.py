@@ -220,11 +220,24 @@ def _categorize_arxiv(title: str, abstract: str) -> tuple[str, str]:
 
 def fetch_arxiv_paper(paper_id: str, session: requests.Session) -> dict | None:
     url = f"https://export.arxiv.org/api/query?id_list={paper_id}&max_results=1"
-    try:
-        resp = session.get(url, timeout=15)
-        resp.raise_for_status()
-    except Exception as e:
-        print(f"  [arxiv] {paper_id}: {e}")
+    for attempt in range(4):
+        try:
+            resp = session.get(url, timeout=15)
+            if resp.status_code == 429:
+                wait = 2 ** (attempt + 1)
+                print(f"  [arxiv] {paper_id}: rate limited, retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            break
+        except Exception as e:
+            if attempt == 3:
+                print(f"  [arxiv] {paper_id}: {e}")
+                return None
+            wait = 2 ** (attempt + 1)
+            time.sleep(wait)
+    else:
+        print(f"  [arxiv] {paper_id}: failed after retries")
         return None
 
     ns = {"atom": "http://www.w3.org/2005/Atom"}
@@ -398,7 +411,7 @@ def main():
     parser.add_argument("--wiki-only", action="store_true")
     parser.add_argument("--github-only", action="store_true")
     parser.add_argument("--no-github", action="store_true")
-    parser.add_argument("--delay", type=float, default=1.0)
+    parser.add_argument("--delay", type=float, default=3.0)
     args = parser.parse_args()
 
     github_token = os.environ.get("GITHUB_TOKEN", "")
