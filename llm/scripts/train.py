@@ -134,6 +134,8 @@ def main():
         num_epochs=train_cfg.get("num_epochs", 3),
         max_steps=args.max_steps or train_cfg.get("max_steps"),
         warmup_steps=train_cfg.get("warmup_steps", 2000),
+        lr_schedule=train_cfg.get("lr_schedule", "cosine"),
+        wsd_stable_ratio=train_cfg.get("wsd_stable_ratio", 0.5),
         dtype=train_cfg.get("dtype", "bfloat16"),
         use_amp=train_cfg.get("use_amp", True),
         checkpoint_dir=train_cfg.get("checkpoint_dir", os.path.join(args.output_dir, "checkpoints")),

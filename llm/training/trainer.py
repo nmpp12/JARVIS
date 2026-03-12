@@ -51,6 +51,7 @@ class TrainingConfig:
     max_steps: Optional[int] = None
     warmup_steps: int = 2000
     lr_schedule: str = "cosine"  # "cosine" or "wsd"
+    wsd_stable_ratio: float = 0.5  # WSD: fraction of total_steps spent at stable LR (default 50%)
 
     # Precision
     dtype: str = "bfloat16"  # "float32", "float16", "bfloat16"
@@ -137,7 +138,7 @@ class Trainer:
         )
         self.total_steps = total_steps
         if config.lr_schedule == "wsd":
-            stable_steps = int(total_steps * 0.7)
+            stable_steps = int(total_steps * config.wsd_stable_ratio)
             decay_steps = total_steps - config.warmup_steps - stable_steps
             self.scheduler = WarmupStableDecayScheduler(
                 self.optimizer,
