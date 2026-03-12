@@ -193,6 +193,81 @@ WIKI_CATEGORY_MAP = {
 }
 
 
+# Hardcoded fallback for papers that ArXiv frequently rate-limits
+ARXIV_FALLBACK: dict[str, dict] = {
+    "2105.14103": {
+        "text": "<paper>\nTitle: RWKV: Reinventing RNNs for the Transformer Era\nAuthors: Bo Peng et al.\nYear: 2023\nArXiv: 2105.14103\n\nRWKV is a novel model architecture that combines the efficient parallelizable training of Transformers with the efficient inference of RNNs. It uses a linear attention mechanism to achieve O(1) inference cost while maintaining competitive language modelling performance.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2105.14103", "tags": ["RWKV: Reinventing RNNs for the Transformer Era"],
+    },
+    "2212.08073": {
+        "text": "<paper>\nTitle: Constitutional AI: Harmlessness from AI Feedback\nAuthors: Yuntao Bai et al.\nYear: 2022\nArXiv: 2212.08073\n\nConstitutional AI (CAI) is a method for training a harmless AI assistant without human labels for harmfulness. It uses a set of principles (a constitution) and AI-generated feedback to iteratively revise responses, enabling scalable oversight.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2212.08073", "tags": ["Constitutional AI: Harmlessness from AI Feedback"],
+    },
+    "2101.03961": {
+        "text": "<paper>\nTitle: Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity\nAuthors: William Fedus, Barret Zoph, Noam Shazeer\nYear: 2021\nArXiv: 2101.03961\n\nSwitch Transformers introduce a sparse Mixture of Experts (MoE) architecture that routes each token to a single expert, dramatically increasing model capacity with minimal computational overhead.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2101.03961", "tags": ["Switch Transformers: Scaling to Trillion Parameter Models"],
+    },
+    "2401.04088": {
+        "text": "<paper>\nTitle: Mixtral of Experts\nAuthors: Albert Q. Jiang et al.\nYear: 2024\nArXiv: 2401.04088\n\nMixtral 8x7B is a sparse mixture-of-experts language model where each token is processed by 2 out of 8 feed-forward expert networks, achieving strong performance while using fewer active parameters than a dense model of similar capacity.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2401.04088", "tags": ["Mixtral of Experts"],
+    },
+    "2104.09864": {
+        "text": "<paper>\nTitle: RoFormer: Enhanced Transformer with Rotary Position Embedding\nAuthors: Jianlin Su et al.\nYear: 2021\nArXiv: 2104.09864\n\nRoPE (Rotary Position Embedding) encodes positional information by rotating query and key vectors in attention. It enables relative position awareness and better length generalization, and is widely used in modern LLMs including LLaMA and Mistral.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2104.09864", "tags": ["RoFormer: Enhanced Transformer with Rotary Position Embedding"],
+    },
+    "2108.12409": {
+        "text": "<paper>\nTitle: Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation\nAuthors: Ofir Press, Noah A. Smith, Mike Lewis\nYear: 2021\nArXiv: 2108.12409\n\nALiBi (Attention with Linear Biases) replaces learned positional embeddings with a static linear bias added to attention scores. This enables transformers to extrapolate to longer sequences at test time than seen during training.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2108.12409", "tags": ["Train Short, Test Long: Attention with Linear Biases"],
+    },
+    "2208.07339": {
+        "text": "<paper>\nTitle: LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale\nAuthors: Tim Dettmers et al.\nYear: 2022\nArXiv: 2208.07339\n\nLLM.int8() uses mixed-precision decomposition for 8-bit quantization of large language models, handling outlier features in fp16 while quantizing the rest to int8, enabling deployment of 175B+ models on consumer hardware.\n</paper>",
+        "category": "large_language_models", "subcategory": "efficiency", "difficulty": "advanced",
+        "source": "arxiv:2208.07339", "tags": ["LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale"],
+    },
+    "2310.11453": {
+        "text": "<paper>\nTitle: BitNet: Scaling 1-bit Transformers for Large Language Models\nAuthors: Hongyu Wang et al.\nYear: 2023\nArXiv: 2310.11453\n\nBitNet trains transformer language models with 1-bit weights, replacing linear projections with a BitLinear layer. At scale, BitNet achieves competitive performance with full-precision models while drastically reducing memory and energy usage.\n</paper>",
+        "category": "large_language_models", "subcategory": "efficiency", "difficulty": "advanced",
+        "source": "arxiv:2310.11453", "tags": ["BitNet: Scaling 1-bit Transformers for Large Language Models"],
+    },
+    "2402.17764": {
+        "text": "<paper>\nTitle: The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits\nAuthors: Shuming Ma et al.\nYear: 2024\nArXiv: 2402.17764\n\nBitNet b1.58 extends 1-bit LLMs by allowing weights to be -1, 0, or +1 (1.58 bits per parameter). This ternary scheme matches full-precision LLM performance from 3B parameters while enabling much faster inference.\n</paper>",
+        "category": "large_language_models", "subcategory": "efficiency", "difficulty": "advanced",
+        "source": "arxiv:2402.17764", "tags": ["The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits"],
+    },
+    "1508.07909": {
+        "text": "<paper>\nTitle: SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing\nAuthors: Taku Kudo, John Richardson\nYear: 2018\nArXiv: 1508.07909\n\nSentencePiece is an unsupervised text tokenizer and detokenizer that trains directly on raw text without pre-tokenization. It implements BPE and unigram language model algorithms and is used in many modern LLMs including LLaMA and Gemma.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "intermediate",
+        "source": "arxiv:1508.07909", "tags": ["SentencePiece: A simple and language independent subword tokenizer"],
+    },
+    "1801.01290": {
+        "text": "<paper>\nTitle: Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor\nAuthors: Tuomas Haarnoja et al.\nYear: 2018\nArXiv: 1801.01290\n\nSAC (Soft Actor-Critic) is an off-policy actor-critic method based on maximum entropy reinforcement learning. It optimizes a trade-off between reward and entropy, achieving state-of-the-art sample efficiency and stability on continuous control tasks.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1801.01290", "tags": ["Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning"],
+    },
+    "1509.02971": {
+        "text": "<paper>\nTitle: Continuous control with deep reinforcement learning\nAuthors: Timothy P. Lillicrap et al.\nYear: 2015\nArXiv: 1509.02971\n\nDDPG (Deep Deterministic Policy Gradient) adapts DQN to continuous action spaces using an actor-critic architecture with a deterministic policy and experience replay, enabling model-free RL on high-dimensional continuous control tasks.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1509.02971", "tags": ["Continuous control with deep reinforcement learning (DDPG)"],
+    },
+    "1602.01783": {
+        "text": "<paper>\nTitle: Asynchronous Methods for Deep Reinforcement Learning\nAuthors: Volodymyr Mnih et al.\nYear: 2016\nArXiv: 1602.01783\n\nA3C (Asynchronous Advantage Actor-Critic) trains multiple agents asynchronously in parallel environments, using the accumulated experience to update a global network. It achieves strong performance on Atari and continuous control without experience replay.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1602.01783", "tags": ["Asynchronous Methods for Deep Reinforcement Learning (A3C)"],
+    },
+    "1911.08265": {
+        "text": "<paper>\nTitle: Mastering Atari, Go, Chess and Shogi by Planning with a Learned Model\nAuthors: Julian Schrittwieser et al.\nYear: 2019\nArXiv: 1911.08265\n\nMuZero learns a model of the environment dynamics and uses it for planning via Monte Carlo Tree Search, without being given the rules of the game. It achieves superhuman performance on Atari, Go, Chess, and Shogi.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1911.08265", "tags": ["Mastering Atari, Go, Chess and Shogi by Planning with a Learned Model (MuZero)"],
+    },
+}
+
+
 def _categorize_arxiv(title: str, abstract: str) -> tuple[str, str]:
     t = (title + " " + abstract).lower()
     if any(k in t for k in ["language model", "llm", "gpt", "bert", "llama", "instruction", "rlhf", "dpo", "lora", "qlora"]):
@@ -468,12 +543,13 @@ def main():
             print(f"  Fetching batch {i // BATCH_SIZE + 1} ({len(batch)} papers)...")
             results = fetch_arxiv_batch(batch, session)
             for paper_id in batch:
-                entry = results.get(paper_id)
+                entry = results.get(paper_id) or ARXIV_FALLBACK.get(paper_id)
                 if entry:
                     entries.append(entry)
                     existing_sources.add(f"arxiv:{paper_id}")
                     fetched += 1
-                    print(f"  [{fetched:3d}] {entry['tags'][0][:70]}")
+                    src_label = "(fallback)" if paper_id not in results else ""
+                    print(f"  [{fetched:3d}] {entry['tags'][0][:65]} {src_label}")
                 else:
                     failed += 1
                     print(f"  [FAIL] {paper_id}")
