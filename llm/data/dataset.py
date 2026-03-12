@@ -72,7 +72,7 @@ class MLKnowledgeDataset(Dataset):
             files = [Path(path)]
 
         for fpath in files:
-            with open(fpath) as f:
+            with open(fpath, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -129,7 +129,7 @@ class MLKnowledgeDataset(Dataset):
         """Pre-tokenize text data into binary format for faster loading."""
         all_tokens = []
 
-        with open(input_path) as f:
+        with open(input_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
