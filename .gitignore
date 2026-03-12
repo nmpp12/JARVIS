@@ -1,2 +1,28 @@
 node_modules/
 .env
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Distribution / packaging
+*.whl
+*.tar.gz
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

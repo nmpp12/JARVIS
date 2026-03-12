@@ -22,6 +22,7 @@ from typing import List, Optional
 
 from ..model.transformer import MOMTransformer
 from ..model.config import ModelConfig
+from .creativity import CreativityEngine, CreativityConfig
 
 
 class TextGenerator:
@@ -32,12 +33,14 @@ class TextGenerator:
         model: MOMTransformer,
         tokenizer,
         device: Optional[torch.device] = None,
+        creativity_engine: Optional[CreativityEngine] = None,
     ):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.model.to(self.device)
         self.model.eval()
+        self.creativity_engine = creativity_engine
 
     @torch.no_grad()
     def generate(
@@ -74,6 +77,16 @@ class TextGenerator:
             contrastive_k: Number of candidates for contrastive search
             adaptive_temp_range: (min_temp, max_temp) for adaptive temperature
         """
+        # Creativity Engine: enhance the prompt before generation when in creative mode
+        if sampling_strategy == "creative" and self.creativity_engine is not None:
+            prompt = self.creativity_engine.enhance_prompt(prompt)
+            # Pull sampling params from the engine's config
+            engine_params = self.creativity_engine.get_sampling_params()
+            temperature = engine_params.get("temperature", temperature)
+            typical_p = engine_params.get("typical_p", typical_p)
+            contrastive_alpha = engine_params.get("contrastive_alpha", contrastive_alpha)
+            repetition_penalty = engine_params.get("repetition_penalty", repetition_penalty)
+
         # Tokenize prompt
         input_ids = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
         input_ids = torch.tensor([input_ids], dtype=torch.long, device=self.device)
@@ -142,7 +155,11 @@ class TextGenerator:
         if not stream:
             # Decode full response (skip prompt tokens)
             response_ids = generated_ids[len(input_ids[0]):]
-            return self.tokenizer.decode(response_ids, skip_special=True)
+            response = self.tokenizer.decode(response_ids, skip_special=True)
+            # Record for novelty tracking when creativity engine is active
+            if self.creativity_engine is not None and sampling_strategy == "creative":
+                self.creativity_engine.record(response)
+            return response
 
     def _sample(
         self,
@@ -427,6 +444,7 @@ class TextGenerator:
         use_speculative: bool = False,
         num_speculative: int = 5,
         draft_checkpoint: Optional[str] = None,
+        enable_creativity: bool = False,
     ) -> "TextGenerator":
         """Load a generator from a training checkpoint.
 
@@ -470,4 +488,5 @@ class TextGenerator:
             model_path=os.path.join(checkpoint_path, "tokenizer"),
         )
 
-        return cls(model, tokenizer, device)
+        creativity_engine = CreativityEngine() if enable_creativity else None
+        return cls(model, tokenizer, device, creativity_engine=creativity_engine)
