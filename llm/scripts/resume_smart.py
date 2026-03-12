@@ -62,6 +62,8 @@ def build_components(ckpt_path: str, max_steps: int, peak_lr: float = None):
         training_config.learning_rate = peak_lr
     training_config.checkpoint_dir = CHECKPOINT_DIR
     training_config.save_every_steps = 200
+    training_config.lr_schedule = "wsd"
+    training_config.wsd_stable_ratio = 0.5
 
     # Tokenizer + dataloaders
     tokenizer = MOMTokenizer(vocab_size=model_config.vocab_size)
@@ -108,14 +110,46 @@ def get_final_loss(trainer: Trainer) -> float:
     return float("inf")
 
 
+def run_phase2(phase1_loss: float = float("inf")) -> None:
+    print()
+    print("=" * 60)
+    print(f"PHASE 2: Falling back to step_2200 (weights-only, WSD schedule)")
+    print(f"  Peak LR: {FALLBACK_PEAK_LR:.0e}  |  Steps: {FALLBACK_EXTRA_STEPS}  |  lr_schedule: wsd")
+    print("=" * 60)
+
+    trainer2 = build_components(
+        RESUME_2200,
+        max_steps=FALLBACK_EXTRA_STEPS,
+        peak_lr=FALLBACK_PEAK_LR,
+    )
+    load_weights_only(trainer2, RESUME_2200)
+    trainer2.train()
+
+    final_loss2 = get_final_loss(trainer2)
+    print(f"\nPhase 2 complete. Final loss: {final_loss2:.4f}")
+
+    if final_loss2 < phase1_loss:
+        print(f"✓ step_2200 path is better ({final_loss2:.4f} < {phase1_loss:.4f}).")
+    else:
+        print(f"Both paths converged similarly. Using step_2200 result as final.")
+    print(f"  Best checkpoint: {CHECKPOINT_DIR}/final")
+
+
 def main():
+    import sys
+    phase2_only = "--phase2-only" in sys.argv
+
+    if phase2_only:
+        run_phase2()
+        return
+
     print("=" * 60)
     print("PHASE 1: Resuming from step_2600 → target step 3000")
     print("=" * 60)
 
     trainer = build_components(RESUME_2600, max_steps=3000)
     trainer.load_checkpoint(RESUME_2600)  # restores step, optimizer, scheduler
-    summary = trainer.train()
+    trainer.train()
 
     final_loss = get_final_loss(trainer)
     print(f"\nPhase 1 complete. Final loss: {final_loss:.4f}")
@@ -129,29 +163,9 @@ def main():
     print()
     print("=" * 60)
     print(f"✗ Loss {final_loss:.4f} > threshold {IMPROVEMENT_THRESHOLD}.")
-    print(f"PHASE 2: Falling back to step_2200 (weights-only, fresh schedule)")
-    print(f"  Peak LR: {FALLBACK_PEAK_LR:.0e}  |  Steps: {FALLBACK_EXTRA_STEPS}")
-    print("=" * 60)
+    run_phase2(final_loss)
+    return
 
-    # We start fresh from step 2200 with a conservative LR.
-    # max_steps = FALLBACK_EXTRA_STEPS so the scheduler targets that window.
-    trainer2 = build_components(
-        RESUME_2200,
-        max_steps=FALLBACK_EXTRA_STEPS,
-        peak_lr=FALLBACK_PEAK_LR,
-    )
-    load_weights_only(trainer2, RESUME_2200)
-    summary2 = trainer2.train()
-
-    final_loss2 = get_final_loss(trainer2)
-    print(f"\nPhase 2 complete. Final loss: {final_loss2:.4f}")
-
-    if final_loss2 < final_loss:
-        print(f"✓ step_2200 path is better ({final_loss2:.4f} < {final_loss:.4f}).")
-    else:
-        print(f"Both paths converged similarly. Using step_2200 result as final.")
-
-    print(f"  Best checkpoint: {CHECKPOINT_DIR}/final")
 
 
 if __name__ == "__main__":
