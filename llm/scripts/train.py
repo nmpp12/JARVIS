@@ -46,6 +46,8 @@ def parse_args():
     parser.add_argument("--data-path", type=str, help="Path to training data")
     parser.add_argument("--eval-path", type=str, help="Path to eval data")
     parser.add_argument("--resume", type=str, help="Resume from checkpoint path")
+    parser.add_argument("--weights-only", action="store_true",
+                        help="When resuming, load model weights only (reset optimizer+scheduler)")
     parser.add_argument("--max-steps", type=int, help="Override max training steps")
     parser.add_argument("--batch-size", type=int, help="Override batch size")
     parser.add_argument("--lr", type=float, help="Override learning rate")
@@ -134,6 +136,8 @@ def main():
         num_epochs=train_cfg.get("num_epochs", 3),
         max_steps=args.max_steps or train_cfg.get("max_steps"),
         warmup_steps=train_cfg.get("warmup_steps", 2000),
+        lr_schedule=train_cfg.get("lr_schedule", "cosine"),
+        wsd_stable_ratio=train_cfg.get("wsd_stable_ratio", 0.5),
         dtype=train_cfg.get("dtype", "bfloat16"),
         use_amp=train_cfg.get("use_amp", True),
         checkpoint_dir=train_cfg.get("checkpoint_dir", os.path.join(args.output_dir, "checkpoints")),
@@ -204,7 +208,12 @@ def main():
 
     # Resume if specified
     if args.resume:
-        trainer.load_checkpoint(args.resume)
+        if args.weights_only:
+            model_path = os.path.join(args.resume, "model.pt")
+            trainer.model.load_state_dict(torch.load(model_path, map_location=trainer.device))
+            print(f"Loaded weights-only from: {args.resume} (fresh optimizer + scheduler)")
+        else:
+            trainer.load_checkpoint(args.resume)
 
     # Train!
     summary = trainer.train()
