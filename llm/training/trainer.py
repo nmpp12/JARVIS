@@ -308,7 +308,8 @@ class Trainer:
                             f"PPL: {perplexity:.2f} | "
                             f"LR: {current_lr:.2e} | "
                             f"Grad: {log_entry['grad_norm']:.3f} | "
-                            f"Tok/s: {tokens_per_sec:.0f}"
+                            f"Tok/s: {tokens_per_sec:.0f}",
+                            flush=True,
                         )
 
                         if self.wandb_run:

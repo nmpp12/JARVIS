@@ -1273,7 +1273,7 @@ class KnowledgeCurator:
     def save_dataset(self, filename: str = "ml_knowledge.jsonl") -> str:
         """Save all entries to JSONL file."""
         output_path = os.path.join(self.output_dir, filename)
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             for entry in self.entries:
                 f.write(json.dumps(entry.to_dict()) + "\n")
         print(f"Saved {len(self.entries)} entries to {output_path}")
@@ -1281,7 +1281,7 @@ class KnowledgeCurator:
 
     def load_external_data(self, path: str) -> None:
         """Load additional training data from JSONL files."""
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:

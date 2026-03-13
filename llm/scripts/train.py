@@ -55,6 +55,8 @@ def parse_args():
                         help="Generate seed ML/DL knowledge data before training")
     parser.add_argument("--output-dir", type=str, default="./output",
                         help="Output directory for data and checkpoints")
+    parser.add_argument("--max-cpu-threads", type=int, default=None,
+                        help="Cap PyTorch + DataLoader CPU threads (e.g. 2 for a 4-core laptop)")
     return parser.parse_args()
 
 
@@ -84,6 +86,15 @@ def generate_seed_data(output_dir: str) -> str:
 
 def main():
     args = parse_args()
+
+    # Cap CPU usage so the laptop stays usable
+    cpu_threads = args.max_cpu_threads or max(1, (os.cpu_count() or 4) // 2)
+    torch.set_num_threads(cpu_threads)
+    torch.set_num_interop_threads(max(1, cpu_threads // 2))
+    os.environ["OMP_NUM_THREADS"] = str(cpu_threads)
+    os.environ["MKL_NUM_THREADS"] = str(cpu_threads)
+    # DataLoader workers: 0 = load in main process (no extra processes at all)
+    num_dl_workers = max(0, cpu_threads - 1)
 
     # Load config from YAML or use defaults
     yaml_config = {}
@@ -130,8 +141,8 @@ def main():
         beta1=train_cfg.get("beta1", 0.9),
         beta2=train_cfg.get("beta2", 0.95),
         max_grad_norm=train_cfg.get("max_grad_norm", 1.0),
-        batch_size=args.batch_size or train_cfg.get("batch_size", 8),
-        gradient_accumulation_steps=train_cfg.get("gradient_accumulation_steps", 4),
+        batch_size=args.batch_size or train_cfg.get("batch_size", 2),
+        gradient_accumulation_steps=train_cfg.get("gradient_accumulation_steps", 16),
         max_seq_len=model_config.max_seq_len,
         num_epochs=train_cfg.get("num_epochs", 3),
         max_steps=args.max_steps or train_cfg.get("max_steps"),
@@ -143,7 +154,7 @@ def main():
         checkpoint_dir=train_cfg.get("checkpoint_dir", os.path.join(args.output_dir, "checkpoints")),
         save_every_steps=train_cfg.get("save_every_steps", 1000),
         eval_every_steps=train_cfg.get("eval_every_steps", 500),
-        log_every_steps=train_cfg.get("log_every_steps", 10),
+        log_every_steps=train_cfg.get("log_every_steps", 1),
         gradient_checkpointing=model_cfg.get("gradient_checkpointing", False),
         label_smoothing=train_cfg.get("label_smoothing", 0.0),
         early_stopping_patience=train_cfg.get("early_stopping_patience", 0),
@@ -166,8 +177,12 @@ def main():
         print("Use --generate-data to create seed training data.")
         sys.exit(1)
 
-    # Initialize tokenizer
+    # Initialize tokenizer and sync vocab size to model
     tokenizer = MOMTokenizer(vocab_size=model_config.vocab_size)
+    actual_vocab = len(tokenizer)
+    if actual_vocab != model_config.vocab_size:
+        print(f"  Tokenizer vocab size: {actual_vocab} (overriding model preset of {model_config.vocab_size})")
+        model_config.vocab_size = actual_vocab
 
     # Create data loaders
     print(f"\nLoading training data from: {data_path}")
@@ -177,7 +192,7 @@ def main():
         batch_size=training_config.batch_size,
         max_seq_len=model_config.max_seq_len,
         shuffle=True,
-        num_workers=data_cfg.get("num_workers", 4),
+        num_workers=num_dl_workers,
     )
 
     eval_loader = None
@@ -189,7 +204,7 @@ def main():
             batch_size=training_config.batch_size,
             max_seq_len=model_config.max_seq_len,
             shuffle=False,
-            num_workers=2,
+            num_workers=num_dl_workers,
         )
 
     # Create model

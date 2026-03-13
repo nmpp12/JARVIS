@@ -164,9 +164,9 @@ class MOMTokenizer:
 
         # Merge all data files
         merged_path = os.path.join(output_dir, "train_data.txt")
-        with open(merged_path, "w") as out:
+        with open(merged_path, "w", encoding="utf-8") as out:
             for fpath in data_files:
-                with open(fpath) as f:
+                with open(fpath, encoding="utf-8") as f:
                     for line in f:
                         out.write(line)
 
@@ -178,7 +178,7 @@ class MOMTokenizer:
             vocab_size=self.vocab_size,
             model_type="bpe",
             character_coverage=0.9995,
-            num_threads=os.cpu_count(),
+            num_threads=max(1, (os.cpu_count() or 4) // 2),
             split_digits=True,
             byte_fallback=True,
             user_defined_symbols=user_defined_symbols,
@@ -199,7 +199,7 @@ class MOMTokenizer:
             "vocab_size": self.vocab_size,
             "special_tokens": self.special_tokens,
         }
-        with open(os.path.join(output_dir, "tokenizer_config.json"), "w") as f:
+        with open(os.path.join(output_dir, "tokenizer_config.json"), "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
 
     def encode(self, text: str, add_bos: bool = True, add_eos: bool = False) -> List[int]:
@@ -248,14 +248,14 @@ class MOMTokenizer:
             "vocab_size": self.vocab_size,
             "special_tokens": self.special_tokens,
         }
-        with open(os.path.join(path, "tokenizer_config.json"), "w") as f:
+        with open(os.path.join(path, "tokenizer_config.json"), "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
 
     def load(self, path: str) -> None:
         """Load tokenizer from saved state."""
         config_path = os.path.join(path, "tokenizer_config.json")
         if os.path.exists(config_path):
-            with open(config_path) as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
             self.backend = config.get("backend", "character")
             self.vocab_size = config.get("vocab_size", 32000)
@@ -283,4 +283,6 @@ class MOMTokenizer:
         return self.special_tokens["<eos>"]
 
     def __len__(self) -> int:
+        if self.backend == "tiktoken" and self._tokenizer:
+            return self._tokenizer.n_vocab
         return self.vocab_size

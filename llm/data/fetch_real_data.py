@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+Fetch real ML/DL training data from ArXiv, Wikipedia, GitHub, and Papers With Code.
 Fetch real ML/DL training data from ArXiv, Wikipedia, and GitHub.
 
 Usage:
@@ -8,6 +9,7 @@ Usage:
     python -m llm.data.fetch_real_data --arxiv-only
     python -m llm.data.fetch_real_data --wiki-only
     python -m llm.data.fetch_real_data --github-only
+    python -m llm.data.fetch_real_data --pwc-only  # fetches from Semantic Scholar
 
 Token (optional, increases GitHub rate limit from 60 to 5000 req/hr):
     export GITHUB_TOKEN=ghp_...
@@ -123,6 +125,74 @@ WIKI_ARTICLES = [
 # ── GitHub repos to fetch READMEs + key files from ───────────────────────────
 GITHUB_REPOS = [
     # Foundational implementations
+    ("karpathy/nanoGPT",              "deep_learning",         "architectures"),
+    ("karpathy/minGPT",               "deep_learning",         "architectures"),
+    ("karpathy/micrograd",            "foundations",           "optimization"),
+    ("karpathy/makemore",             "large_language_models", "architectures"),
+    ("karpathy/nn-zero-to-hero",      "deep_learning",         "training"),
+    # Major frameworks
+    ("huggingface/transformers",      "large_language_models", "architectures"),
+    ("huggingface/peft",              "large_language_models", "efficiency"),
+    ("huggingface/trl",               "large_language_models", "training"),
+    ("huggingface/diffusers",         "generative_models",     "diffusion"),
+    ("huggingface/accelerate",        "systems",               "distributed"),
+    ("huggingface/tokenizers",        "large_language_models", "tokenization"),
+    # PyTorch ecosystem
+    ("pytorch/pytorch",               "deep_learning",         "training"),
+    ("pytorch/torchtune",             "large_language_models", "training"),
+    ("pytorch/ao",                    "large_language_models", "efficiency"),
+    # JAX ecosystem
+    ("google/jax",                    "deep_learning",         "training"),
+    ("google/flax",                   "deep_learning",         "architectures"),
+    ("deepmind/optax",                "foundations",           "optimization"),
+    # Efficient attention & inference
+    ("Dao-AILab/flash-attention",     "deep_learning",         "attention"),
+    ("vllm-project/vllm",             "large_language_models", "efficiency"),
+    ("unslothai/unsloth",             "large_language_models", "efficiency"),
+    # Quantization & compression
+    ("TimDettmers/bitsandbytes",      "large_language_models", "efficiency"),
+    ("ggerganov/llama.cpp",           "large_language_models", "efficiency"),
+    ("casper-hansen/AutoAWQ",         "large_language_models", "efficiency"),
+    ("IST-DASLab/gptq",               "large_language_models", "efficiency"),
+    # Training frameworks
+    ("microsoft/DeepSpeed",           "systems",               "distributed"),
+    ("NVIDIA/Megatron-LM",            "systems",               "distributed"),
+    ("Lightning-AI/pytorch-lightning","systems",               "training"),
+    ("EleutherAI/gpt-neox",           "large_language_models", "architectures"),
+    # Model implementations
+    ("facebookresearch/llama",        "large_language_models", "architectures"),
+    ("mistralai/mistral-src",         "large_language_models", "architectures"),
+    ("allenai/OLMo",                  "large_language_models", "architectures"),
+    ("microsoft/LoRA",                "large_language_models", "efficiency"),
+    ("artidoro/qlora",                "large_language_models", "efficiency"),
+    # Vision & multimodal
+    ("openai/CLIP",                   "deep_learning",         "architectures"),
+    ("mlfoundations/open_clip",       "deep_learning",         "architectures"),
+    ("facebookresearch/segment-anything", "deep_learning",      "architectures"),
+    ("openai/whisper",                "deep_learning",         "architectures"),
+    # Evaluation
+    ("EleutherAI/lm-evaluation-harness", "large_language_models", "training"),
+    # RL
+    ("openai/baselines",              "reinforcement_learning","advanced"),
+    ("DLR-RM/stable-baselines3",      "reinforcement_learning","advanced"),
+    ("google-deepmind/acme",          "reinforcement_learning","advanced"),
+    # Diffusion
+    ("CompVis/stable-diffusion",      "generative_models",     "diffusion"),
+    ("openai/consistency_models",     "generative_models",     "diffusion"),
+    # Classic ML
+    ("scikit-learn/scikit-learn",     "machine_learning",      "supervised"),
+    ("dmlc/xgboost",                  "machine_learning",      "supervised"),
+    # Tokenizers
+    ("openai/tiktoken",               "large_language_models", "tokenization"),
+    ("google/sentencepiece",          "large_language_models", "tokenization"),
+    # Mamba / SSMs
+    ("state-spaces/mamba",            "deep_learning",         "architectures"),
+    # Alignment & RLHF
+    ("openai/openai-cookbook",        "large_language_models", "training"),
+    ("anthropics/anthropic-cookbook", "large_language_models", "training"),
+    # Learning resources
+    ("mlabonne/llm-course",           "large_language_models", "overview"),
+    ("rasbt/LLMs-from-scratch",       "large_language_models", "architectures"),
     ("karpathy/nanoGPT",         "deep_learning",         "architectures"),
     ("karpathy/minGPT",          "deep_learning",         "architectures"),
     ("karpathy/micrograd",       "foundations",           "optimization"),
@@ -190,6 +260,81 @@ WIKI_CATEGORY_MAP = {
     "Mixture of experts": ("large_language_models", "architectures"),
     "Knowledge distillation": ("large_language_models", "efficiency"),
     "Byte pair encoding": ("large_language_models", "tokenization"),
+}
+
+
+# Hardcoded fallback for papers that ArXiv frequently rate-limits
+ARXIV_FALLBACK: dict[str, dict] = {
+    "2105.14103": {
+        "text": "<paper>\nTitle: RWKV: Reinventing RNNs for the Transformer Era\nAuthors: Bo Peng et al.\nYear: 2023\nArXiv: 2105.14103\n\nRWKV is a novel model architecture that combines the efficient parallelizable training of Transformers with the efficient inference of RNNs. It uses a linear attention mechanism to achieve O(1) inference cost while maintaining competitive language modelling performance.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2105.14103", "tags": ["RWKV: Reinventing RNNs for the Transformer Era"],
+    },
+    "2212.08073": {
+        "text": "<paper>\nTitle: Constitutional AI: Harmlessness from AI Feedback\nAuthors: Yuntao Bai et al.\nYear: 2022\nArXiv: 2212.08073\n\nConstitutional AI (CAI) is a method for training a harmless AI assistant without human labels for harmfulness. It uses a set of principles (a constitution) and AI-generated feedback to iteratively revise responses, enabling scalable oversight.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2212.08073", "tags": ["Constitutional AI: Harmlessness from AI Feedback"],
+    },
+    "2101.03961": {
+        "text": "<paper>\nTitle: Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity\nAuthors: William Fedus, Barret Zoph, Noam Shazeer\nYear: 2021\nArXiv: 2101.03961\n\nSwitch Transformers introduce a sparse Mixture of Experts (MoE) architecture that routes each token to a single expert, dramatically increasing model capacity with minimal computational overhead.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2101.03961", "tags": ["Switch Transformers: Scaling to Trillion Parameter Models"],
+    },
+    "2401.04088": {
+        "text": "<paper>\nTitle: Mixtral of Experts\nAuthors: Albert Q. Jiang et al.\nYear: 2024\nArXiv: 2401.04088\n\nMixtral 8x7B is a sparse mixture-of-experts language model where each token is processed by 2 out of 8 feed-forward expert networks, achieving strong performance while using fewer active parameters than a dense model of similar capacity.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2401.04088", "tags": ["Mixtral of Experts"],
+    },
+    "2104.09864": {
+        "text": "<paper>\nTitle: RoFormer: Enhanced Transformer with Rotary Position Embedding\nAuthors: Jianlin Su et al.\nYear: 2021\nArXiv: 2104.09864\n\nRoPE (Rotary Position Embedding) encodes positional information by rotating query and key vectors in attention. It enables relative position awareness and better length generalization, and is widely used in modern LLMs including LLaMA and Mistral.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2104.09864", "tags": ["RoFormer: Enhanced Transformer with Rotary Position Embedding"],
+    },
+    "2108.12409": {
+        "text": "<paper>\nTitle: Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation\nAuthors: Ofir Press, Noah A. Smith, Mike Lewis\nYear: 2021\nArXiv: 2108.12409\n\nALiBi (Attention with Linear Biases) replaces learned positional embeddings with a static linear bias added to attention scores. This enables transformers to extrapolate to longer sequences at test time than seen during training.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "advanced",
+        "source": "arxiv:2108.12409", "tags": ["Train Short, Test Long: Attention with Linear Biases"],
+    },
+    "2208.07339": {
+        "text": "<paper>\nTitle: LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale\nAuthors: Tim Dettmers et al.\nYear: 2022\nArXiv: 2208.07339\n\nLLM.int8() uses mixed-precision decomposition for 8-bit quantization of large language models, handling outlier features in fp16 while quantizing the rest to int8, enabling deployment of 175B+ models on consumer hardware.\n</paper>",
+        "category": "large_language_models", "subcategory": "efficiency", "difficulty": "advanced",
+        "source": "arxiv:2208.07339", "tags": ["LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale"],
+    },
+    "2310.11453": {
+        "text": "<paper>\nTitle: BitNet: Scaling 1-bit Transformers for Large Language Models\nAuthors: Hongyu Wang et al.\nYear: 2023\nArXiv: 2310.11453\n\nBitNet trains transformer language models with 1-bit weights, replacing linear projections with a BitLinear layer. At scale, BitNet achieves competitive performance with full-precision models while drastically reducing memory and energy usage.\n</paper>",
+        "category": "large_language_models", "subcategory": "efficiency", "difficulty": "advanced",
+        "source": "arxiv:2310.11453", "tags": ["BitNet: Scaling 1-bit Transformers for Large Language Models"],
+    },
+    "2402.17764": {
+        "text": "<paper>\nTitle: The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits\nAuthors: Shuming Ma et al.\nYear: 2024\nArXiv: 2402.17764\n\nBitNet b1.58 extends 1-bit LLMs by allowing weights to be -1, 0, or +1 (1.58 bits per parameter). This ternary scheme matches full-precision LLM performance from 3B parameters while enabling much faster inference.\n</paper>",
+        "category": "large_language_models", "subcategory": "efficiency", "difficulty": "advanced",
+        "source": "arxiv:2402.17764", "tags": ["The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits"],
+    },
+    "1508.07909": {
+        "text": "<paper>\nTitle: SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing\nAuthors: Taku Kudo, John Richardson\nYear: 2018\nArXiv: 1508.07909\n\nSentencePiece is an unsupervised text tokenizer and detokenizer that trains directly on raw text without pre-tokenization. It implements BPE and unigram language model algorithms and is used in many modern LLMs including LLaMA and Gemma.\n</paper>",
+        "category": "large_language_models", "subcategory": "architectures", "difficulty": "intermediate",
+        "source": "arxiv:1508.07909", "tags": ["SentencePiece: A simple and language independent subword tokenizer"],
+    },
+    "1801.01290": {
+        "text": "<paper>\nTitle: Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor\nAuthors: Tuomas Haarnoja et al.\nYear: 2018\nArXiv: 1801.01290\n\nSAC (Soft Actor-Critic) is an off-policy actor-critic method based on maximum entropy reinforcement learning. It optimizes a trade-off between reward and entropy, achieving state-of-the-art sample efficiency and stability on continuous control tasks.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1801.01290", "tags": ["Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning"],
+    },
+    "1509.02971": {
+        "text": "<paper>\nTitle: Continuous control with deep reinforcement learning\nAuthors: Timothy P. Lillicrap et al.\nYear: 2015\nArXiv: 1509.02971\n\nDDPG (Deep Deterministic Policy Gradient) adapts DQN to continuous action spaces using an actor-critic architecture with a deterministic policy and experience replay, enabling model-free RL on high-dimensional continuous control tasks.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1509.02971", "tags": ["Continuous control with deep reinforcement learning (DDPG)"],
+    },
+    "1602.01783": {
+        "text": "<paper>\nTitle: Asynchronous Methods for Deep Reinforcement Learning\nAuthors: Volodymyr Mnih et al.\nYear: 2016\nArXiv: 1602.01783\n\nA3C (Asynchronous Advantage Actor-Critic) trains multiple agents asynchronously in parallel environments, using the accumulated experience to update a global network. It achieves strong performance on Atari and continuous control without experience replay.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1602.01783", "tags": ["Asynchronous Methods for Deep Reinforcement Learning (A3C)"],
+    },
+    "1911.08265": {
+        "text": "<paper>\nTitle: Mastering Atari, Go, Chess and Shogi by Planning with a Learned Model\nAuthors: Julian Schrittwieser et al.\nYear: 2019\nArXiv: 1911.08265\n\nMuZero learns a model of the environment dynamics and uses it for planning via Monte Carlo Tree Search, without being given the rules of the game. It achieves superhuman performance on Atari, Go, Chess, and Shogi.\n</paper>",
+        "category": "reinforcement_learning", "subcategory": "advanced", "difficulty": "advanced",
+        "source": "arxiv:1911.08265", "tags": ["Mastering Atari, Go, Chess and Shogi by Planning with a Learned Model (MuZero)"],
+    },
 }
 
 
@@ -404,6 +549,79 @@ def fetch_github_repo(owner: str, repo: str, category: str, subcategory: str,
     return entries
 
 
+def fetch_semantic_scholar(session: requests.Session, max_papers: int = 500) -> list[dict]:
+    """Fetch top ML papers from Semantic Scholar (open API, no auth needed)."""
+    entries = []
+    base_url = "https://api.semanticscholar.org/graph/v1/paper/search"
+    fields = "title,abstract,year,authors,externalIds"
+    queries = [
+        "deep learning", "large language model", "transformer attention",
+        "reinforcement learning", "diffusion model", "generative adversarial network",
+        "graph neural network", "contrastive learning", "neural architecture search",
+        "federated learning", "knowledge distillation", "quantization neural network",
+    ]
+
+    s2_session = requests.Session()
+    s2_session.headers["User-Agent"] = "JARVIS-MOM-DataFetcher/1.0 (educational ML training)"
+
+    for query in queries:
+        if len(entries) >= max_papers:
+            break
+        offset = 0
+        while len(entries) < max_papers:
+            try:
+                resp = s2_session.get(base_url, params={
+                    "query": query, "fields": fields,
+                    "limit": 100, "offset": offset,
+                }, timeout=15)
+                if resp.status_code == 429:
+                    time.sleep(30)
+                    continue
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                results = data.get("data", [])
+                if not results:
+                    break
+                for paper in results:
+                    title    = (paper.get("title") or "").strip()
+                    abstract = (paper.get("abstract") or "").strip()
+                    if not title or not abstract:
+                        continue
+                    ext_ids  = paper.get("externalIds") or {}
+                    arxiv_id = (ext_ids.get("ArXiv") or "").strip()
+                    src = f"s2:{arxiv_id or title}"
+                    category, subcategory = _categorize_arxiv(title, abstract)
+                    lines = ["<paper>", f"Title: {title}"]
+                    if arxiv_id:
+                        lines.append(f"ArXiv: {arxiv_id}")
+                    year = paper.get("year")
+                    if year:
+                        lines.append(f"Year: {year}")
+                    lines += ["", abstract, "</paper>"]
+                    entries.append({
+                        "text": "\n".join(lines),
+                        "category": category,
+                        "subcategory": subcategory,
+                        "difficulty": "advanced",
+                        "source": src,
+                        "tags": [title],
+                    })
+                offset += len(results)
+                if len(results) < 100:
+                    break
+                time.sleep(1)
+            except Exception as e:
+                print(f"  [s2] error on '{query}': {e}")
+                break
+
+    return entries
+
+
+def load_existing(path: str) -> list[dict]:
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
 def load_existing(path: str) -> list[dict]:
     if not os.path.exists(path):
         return []
@@ -426,6 +644,11 @@ def main():
     parser.add_argument("--arxiv-only", action="store_true")
     parser.add_argument("--wiki-only", action="store_true")
     parser.add_argument("--github-only", action="store_true")
+    parser.add_argument("--pwc-only", action="store_true")
+    parser.add_argument("--no-github", action="store_true")
+    parser.add_argument("--no-pwc", action="store_true")
+    parser.add_argument("--pwc-max", type=int, default=500,
+                        help="Max papers to fetch from Papers With Code (default 500)")
     parser.add_argument("--no-github", action="store_true")
     parser.add_argument("--delay", type=float, default=3.0)
     args = parser.parse_args()
@@ -445,6 +668,11 @@ def main():
         print(f"Loaded {len(existing)} existing entries.")
     existing_sources = {e.get("source", "") for e in entries}
 
+    only = args.arxiv_only or args.wiki_only or args.github_only or args.pwc_only
+    do_arxiv  = args.arxiv_only  or (not only and True)
+    do_wiki   = args.wiki_only   or (not only and True)
+    do_github = args.github_only or (not only and not args.no_github)
+    do_pwc    = args.pwc_only    or (not only and not args.no_pwc)
     do_arxiv  = not args.wiki_only  and not args.github_only
     do_wiki   = not args.arxiv_only and not args.github_only
     do_github = not args.arxiv_only and not args.wiki_only and not args.no_github
@@ -468,11 +696,14 @@ def main():
             print(f"  Fetching batch {i // BATCH_SIZE + 1} ({len(batch)} papers)...")
             results = fetch_arxiv_batch(batch, session)
             for paper_id in batch:
+                entry = results.get(paper_id) or ARXIV_FALLBACK.get(paper_id)
                 entry = results.get(paper_id)
                 if entry:
                     entries.append(entry)
                     existing_sources.add(f"arxiv:{paper_id}")
                     fetched += 1
+                    src_label = "(fallback)" if paper_id not in results else ""
+                    print(f"  [{fetched:3d}] {entry['tags'][0][:65]} {src_label}")
                     print(f"  [{fetched:3d}] {entry['tags'][0][:70]}")
                 else:
                     failed += 1
@@ -524,6 +755,22 @@ def main():
                 print(f"  [fail] {full_name}")
             time.sleep(args.delay)
         print(f"  GitHub: {repo_fetched} repos fetched")
+
+    # ── Semantic Scholar ──────────────────────────────────────────────────────
+    if do_pwc:
+        print(f"\nFetching up to {args.pwc_max} papers from Semantic Scholar...")
+        s2_entries = fetch_semantic_scholar(session, max_papers=args.pwc_max)
+        new = 0
+        skipped = 0
+        for e in s2_entries:
+            src = e["source"]
+            if src in existing_sources:
+                skipped += 1
+                continue
+            entries.append(e)
+            existing_sources.add(src)
+            new += 1
+        print(f"  Semantic Scholar: {new} fetched, {skipped} skipped")
 
     # ── Save ──────────────────────────────────────────────────────────────────
     save_jsonl(entries, args.output)
