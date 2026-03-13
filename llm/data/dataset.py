@@ -42,10 +42,12 @@ class MLKnowledgeDataset(Dataset):
         tokenizer,
         max_seq_len: int = 2048,
         mode: str = "auto",
+        num_repeats: int = 1,
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.data_path = data_path
+        self.num_repeats = max(1, num_repeats)
 
         if mode == "auto":
             mode = "binary" if data_path.endswith(".bin") else "jsonl"
@@ -63,8 +65,13 @@ class MLKnowledgeDataset(Dataset):
         self.mode = "binary"
 
     def _load_jsonl(self, path: str) -> None:
-        """Load and tokenize JSONL text data."""
-        self.samples = []
+        """Load, tokenize, and chunk JSONL text into fixed-size token windows.
+
+        All texts are concatenated into a flat token stream (standard LM packing).
+        Each window of (max_seq_len + 1) tokens becomes one training sample.
+        This avoids truncating long entries and eliminates padding waste.
+        """
+        token_buffer: List[int] = []
 
         if os.path.isdir(path):
             files = sorted(Path(path).glob("*.jsonl"))
@@ -80,14 +87,27 @@ class MLKnowledgeDataset(Dataset):
                     try:
                         entry = json.loads(line)
                         text = entry.get("text", entry.get("content", ""))
-                        if text:
-                            self.samples.append(text)
                     except json.JSONDecodeError:
-                        # Treat as raw text
-                        self.samples.append(line)
+                        text = line
+                    if text:
+                        token_buffer.extend(
+                            self.tokenizer.encode(text, add_bos=True, add_eos=True)
+                        )
 
-        self.num_samples = len(self.samples)
+        # Repeat the token stream (standard practice for small corpora)
+        if self.num_repeats > 1:
+            token_buffer = token_buffer * self.num_repeats
+
+        # Slice into non-overlapping windows of (max_seq_len + 1) for x / y shift
+        chunk_size = self.max_seq_len + 1
+        self.chunks: List[List[int]] = [
+            token_buffer[i : i + chunk_size]
+            for i in range(0, len(token_buffer) - chunk_size + 1, self.max_seq_len)
+        ]
+        self.num_samples = len(self.chunks)
         self.mode = "jsonl"
+        print(f"  Packed {len(token_buffer):,} tokens ({self.num_repeats}x repeat) "
+              f"-> {self.num_samples} samples (seq_len={self.max_seq_len})")
 
     def __len__(self) -> int:
         return self.num_samples
@@ -100,22 +120,9 @@ class MLKnowledgeDataset(Dataset):
             x = torch.from_numpy(chunk[:-1])
             y = torch.from_numpy(chunk[1:])
         else:
-            text = self.samples[idx]
-            tokens = self.tokenizer.encode(text, add_bos=True, add_eos=True)
-
-            # Truncate or pad
-            if len(tokens) > self.max_seq_len + 1:
-                tokens = tokens[: self.max_seq_len + 1]
-
-            tokens = torch.tensor(tokens, dtype=torch.long)
-            x = tokens[:-1]
-            y = tokens[1:]
-
-            # Pad if needed
-            if len(x) < self.max_seq_len:
-                pad_len = self.max_seq_len - len(x)
-                x = torch.cat([x, torch.full((pad_len,), self.tokenizer.pad_token_id)])
-                y = torch.cat([y, torch.full((pad_len,), -100)])  # -100 = ignore in loss
+            chunk = torch.tensor(self.chunks[idx], dtype=torch.long)
+            x = chunk[:-1]
+            y = chunk[1:]
 
         return {"input_ids": x, "labels": y}
 
@@ -178,12 +185,14 @@ def create_dataloader(
     max_seq_len: int = 2048,
     shuffle: bool = True,
     num_workers: int = 4,
+    num_repeats: int = 1,
 ) -> DataLoader:
     """Create a DataLoader for training."""
     dataset = MLKnowledgeDataset(
         data_path=data_path,
         tokenizer=tokenizer,
         max_seq_len=max_seq_len,
+        num_repeats=num_repeats,
     )
     collator = DataCollator(
         pad_token_id=tokenizer.pad_token_id,
