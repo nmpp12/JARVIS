@@ -527,14 +527,13 @@ def fetch_paperswithcode(session: requests.Session, max_papers: int = 500) -> li
     while len(entries) < max_papers:
         try:
             resp = pwc_session.get(url, params=params, timeout=15)
+            print(f"  [pwc] HTTP {resp.status_code}, body[:200]: {resp.text[:200]!r}")
             if resp.status_code == 429:
                 time.sleep(10)
                 continue
             if resp.status_code != 200:
-                print(f"  [pwc] HTTP {resp.status_code}: {resp.text[:200]}")
                 break
             if not resp.text.strip():
-                print(f"  [pwc] empty response")
                 break
             data = resp.json()
             results = data.get("results", [])
