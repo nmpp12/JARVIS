@@ -166,8 +166,12 @@ def main():
         print("Use --generate-data to create seed training data.")
         sys.exit(1)
 
-    # Initialize tokenizer
+    # Initialize tokenizer and sync vocab size to model
     tokenizer = MOMTokenizer(vocab_size=model_config.vocab_size)
+    actual_vocab = len(tokenizer)
+    if actual_vocab != model_config.vocab_size:
+        print(f"  Tokenizer vocab size: {actual_vocab} (overriding model preset of {model_config.vocab_size})")
+        model_config.vocab_size = actual_vocab
 
     # Create data loaders
     print(f"\nLoading training data from: {data_path}")

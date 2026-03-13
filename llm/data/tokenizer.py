@@ -283,4 +283,6 @@ class MOMTokenizer:
         return self.special_tokens["<eos>"]
 
     def __len__(self) -> int:
+        if self.backend == "tiktoken" and self._tokenizer:
+            return self._tokenizer.n_vocab
         return self.vocab_size
