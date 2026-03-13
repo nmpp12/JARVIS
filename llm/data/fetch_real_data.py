@@ -8,7 +8,7 @@ Usage:
     python -m llm.data.fetch_real_data --arxiv-only
     python -m llm.data.fetch_real_data --wiki-only
     python -m llm.data.fetch_real_data --github-only
-    python -m llm.data.fetch_real_data --pwc-only
+    python -m llm.data.fetch_real_data --pwc-only  # fetches from Semantic Scholar
 
 Token (optional, increases GitHub rate limit from 60 to 5000 req/hr):
     export GITHUB_TOKEN=ghp_...
@@ -514,61 +514,71 @@ def fetch_github_repo(owner: str, repo: str, category: str, subcategory: str,
     return entries
 
 
-def fetch_paperswithcode(session: requests.Session, max_papers: int = 500) -> list[dict]:
-    """Fetch top ML papers from the Papers With Code public REST API."""
+def fetch_semantic_scholar(session: requests.Session, max_papers: int = 500) -> list[dict]:
+    """Fetch top ML papers from Semantic Scholar (open API, no auth needed)."""
     entries = []
-    url = "https://paperswithcode.com/api/v1/papers/"
-    params = {"ordering": "-stars", "page_size": 50, "page": 1}
+    base_url = "https://api.semanticscholar.org/graph/v1/paper/search"
+    fields = "title,abstract,year,authors,externalIds"
+    queries = [
+        "deep learning", "large language model", "transformer attention",
+        "reinforcement learning", "diffusion model", "generative adversarial network",
+        "graph neural network", "contrastive learning", "neural architecture search",
+        "federated learning", "knowledge distillation", "quantization neural network",
+    ]
 
-    # Use a clean session without the GitHub auth header
-    pwc_session = requests.Session()
-    pwc_session.headers.update({
-        "User-Agent": "Mozilla/5.0 (compatible; JARVIS-MOM-DataFetcher/1.0)",
-        "Accept": "application/json",
-    })
+    s2_session = requests.Session()
+    s2_session.headers["User-Agent"] = "JARVIS-MOM-DataFetcher/1.0 (educational ML training)"
 
-    while len(entries) < max_papers:
-        try:
-            resp = pwc_session.get(url, params=params, timeout=15)
-            print(f"  [pwc] HTTP {resp.status_code}, body[:200]: {resp.text[:200]!r}")
-            if resp.status_code == 429:
-                time.sleep(10)
-                continue
-            if resp.status_code != 200:
-                break
-            if not resp.text.strip():
-                break
-            data = resp.json()
-            results = data.get("results", [])
-            if not results:
-                break
-            for paper in results:
-                title    = (paper.get("title") or "").strip()
-                abstract = (paper.get("abstract") or "").strip()
-                arxiv_id = (paper.get("arxiv_id") or "").strip()
-                if not title or not abstract:
-                    continue
-                src = f"pwc:{arxiv_id or title}"
-                category, subcategory = _categorize_arxiv(title, abstract)
-                lines = [f"<paper>", f"Title: {title}"]
-                if arxiv_id:
-                    lines.append(f"ArXiv: {arxiv_id}")
-                lines += ["", abstract, "</paper>"]
-                entries.append({
-                    "text": "\n".join(lines),
-                    "category": category,
-                    "subcategory": subcategory,
-                    "difficulty": "advanced",
-                    "source": src,
-                    "tags": [title],
-                })
-            if not data.get("next"):
-                break
-            params["page"] += 1
-            time.sleep(1)
-        except Exception as e:
-            print(f"  [pwc] error: {e}")
+    for query in queries:
+        if len(entries) >= max_papers:
             break
+        offset = 0
+        while len(entries) < max_papers:
+            try:
+                resp = s2_session.get(base_url, params={
+                    "query": query, "fields": fields,
+                    "limit": 100, "offset": offset,
+                }, timeout=15)
+                if resp.status_code == 429:
+                    time.sleep(30)
+                    continue
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                results = data.get("data", [])
+                if not results:
+                    break
+                for paper in results:
+                    title    = (paper.get("title") or "").strip()
+                    abstract = (paper.get("abstract") or "").strip()
+                    if not title or not abstract:
+                        continue
+                    ext_ids  = paper.get("externalIds") or {}
+                    arxiv_id = (ext_ids.get("ArXiv") or "").strip()
+                    src = f"s2:{arxiv_id or title}"
+                    category, subcategory = _categorize_arxiv(title, abstract)
+                    lines = ["<paper>", f"Title: {title}"]
+                    if arxiv_id:
+                        lines.append(f"ArXiv: {arxiv_id}")
+                    year = paper.get("year")
+                    if year:
+                        lines.append(f"Year: {year}")
+                    lines += ["", abstract, "</paper>"]
+                    entries.append({
+                        "text": "\n".join(lines),
+                        "category": category,
+                        "subcategory": subcategory,
+                        "difficulty": "advanced",
+                        "source": src,
+                        "tags": [title],
+                    })
+                offset += len(results)
+                if len(results) < 100:
+                    break
+                time.sleep(1)
+            except Exception as e:
+                print(f"  [s2] error on '{query}': {e}")
+                break
 
     return entries
 
@@ -701,13 +711,13 @@ def main():
             time.sleep(args.delay)
         print(f"  GitHub: {repo_fetched} repos fetched")
 
-    # ── Papers With Code ──────────────────────────────────────────────────────
+    # ── Semantic Scholar ──────────────────────────────────────────────────────
     if do_pwc:
-        print(f"\nFetching up to {args.pwc_max} papers from Papers With Code...")
-        pwc_entries = fetch_paperswithcode(session, max_papers=args.pwc_max)
+        print(f"\nFetching up to {args.pwc_max} papers from Semantic Scholar...")
+        s2_entries = fetch_semantic_scholar(session, max_papers=args.pwc_max)
         new = 0
         skipped = 0
-        for e in pwc_entries:
+        for e in s2_entries:
             src = e["source"]
             if src in existing_sources:
                 skipped += 1
@@ -715,7 +725,7 @@ def main():
             entries.append(e)
             existing_sources.add(src)
             new += 1
-        print(f"  PapersWithCode: {new} fetched, {skipped} skipped")
+        print(f"  Semantic Scholar: {new} fetched, {skipped} skipped")
 
     # ── Save ──────────────────────────────────────────────────────────────────
     save_jsonl(entries, args.output)
