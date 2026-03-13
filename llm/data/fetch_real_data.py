@@ -522,7 +522,10 @@ def fetch_paperswithcode(session: requests.Session, max_papers: int = 500) -> li
 
     # Use a clean session without the GitHub auth header
     pwc_session = requests.Session()
-    pwc_session.headers["User-Agent"] = session.headers.get("User-Agent", "JARVIS-MOM-DataFetcher/1.0")
+    pwc_session.headers.update({
+        "User-Agent": "Mozilla/5.0 (compatible; JARVIS-MOM-DataFetcher/1.0)",
+        "Accept": "application/json",
+    })
 
     while len(entries) < max_papers:
         try:
