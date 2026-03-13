@@ -520,9 +520,13 @@ def fetch_paperswithcode(session: requests.Session, max_papers: int = 500) -> li
     url = "https://paperswithcode.com/api/v1/papers/"
     params = {"ordering": "-stars", "page_size": 50, "page": 1}
 
+    # Use a clean session without the GitHub auth header
+    pwc_session = requests.Session()
+    pwc_session.headers["User-Agent"] = session.headers.get("User-Agent", "JARVIS-MOM-DataFetcher/1.0")
+
     while len(entries) < max_papers:
         try:
-            resp = session.get(url, params=params, timeout=15)
+            resp = pwc_session.get(url, params=params, timeout=15)
             if resp.status_code == 429:
                 time.sleep(10)
                 continue
