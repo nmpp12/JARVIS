@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Fetch real ML/DL training data from ArXiv, Wikipedia, GitHub, and Papers With Code.
+Fetch real ML/DL training data from ArXiv, Wikipedia, and GitHub.
 
 Usage:
     python -m llm.data.fetch_real_data
@@ -192,6 +193,40 @@ GITHUB_REPOS = [
     # Learning resources
     ("mlabonne/llm-course",           "large_language_models", "overview"),
     ("rasbt/LLMs-from-scratch",       "large_language_models", "architectures"),
+    ("karpathy/nanoGPT",         "deep_learning",         "architectures"),
+    ("karpathy/minGPT",          "deep_learning",         "architectures"),
+    ("karpathy/micrograd",       "foundations",           "optimization"),
+    ("karpathy/makemore",        "large_language_models", "architectures"),
+    ("karpathy/nn-zero-to-hero", "deep_learning",         "training"),
+    # Major frameworks (README gives dense practical knowledge)
+    ("huggingface/transformers", "large_language_models", "architectures"),
+    ("huggingface/peft",         "large_language_models", "efficiency"),
+    ("huggingface/trl",          "large_language_models", "training"),
+    ("huggingface/diffusers",    "generative_models",     "diffusion"),
+    ("huggingface/accelerate",   "systems",               "distributed"),
+    # Efficient attention
+    ("Dao-AILab/flash-attention","deep_learning",         "attention"),
+    # Quantization
+    ("TimDettmers/bitsandbytes", "large_language_models", "efficiency"),
+    ("ggerganov/llama.cpp",      "large_language_models", "efficiency"),
+    # Training frameworks
+    ("microsoft/DeepSpeed",      "systems",               "distributed"),
+    ("Lightning-AI/pytorch-lightning", "systems",         "training"),
+    # RL
+    ("openai/baselines",         "reinforcement_learning","advanced"),
+    ("DLR-RM/stable-baselines3", "reinforcement_learning","advanced"),
+    # Diffusion
+    ("CompVis/stable-diffusion", "generative_models",     "diffusion"),
+    ("openai/consistency_models","generative_models",     "diffusion"),
+    # Classic ML
+    ("scikit-learn/scikit-learn","machine_learning",      "supervised"),
+    # Tokenizers
+    ("openai/tiktoken",          "large_language_models", "tokenization"),
+    ("google/sentencepiece",     "large_language_models", "tokenization"),
+    # Mamba / SSMs
+    ("state-spaces/mamba",       "deep_learning",         "architectures"),
+    # Alignment
+    ("openai/openai-cookbook",   "large_language_models", "training"),
 ]
 
 WIKI_CATEGORY_MAP = {
@@ -587,6 +622,10 @@ def load_existing(path: str) -> list[dict]:
     if not os.path.exists(path):
         return []
     with open(path, encoding="utf-8") as f:
+def load_existing(path: str) -> list[dict]:
+    if not os.path.exists(path):
+        return []
+    with open(path) as f:
         return [json.loads(l) for l in f if l.strip()]
 
 
@@ -610,6 +649,7 @@ def main():
     parser.add_argument("--no-pwc", action="store_true")
     parser.add_argument("--pwc-max", type=int, default=500,
                         help="Max papers to fetch from Papers With Code (default 500)")
+    parser.add_argument("--no-github", action="store_true")
     parser.add_argument("--delay", type=float, default=3.0)
     args = parser.parse_args()
 
@@ -633,6 +673,9 @@ def main():
     do_wiki   = args.wiki_only   or (not only and True)
     do_github = args.github_only or (not only and not args.no_github)
     do_pwc    = args.pwc_only    or (not only and not args.no_pwc)
+    do_arxiv  = not args.wiki_only  and not args.github_only
+    do_wiki   = not args.arxiv_only and not args.github_only
+    do_github = not args.arxiv_only and not args.wiki_only and not args.no_github
 
     # ── ArXiv ─────────────────────────────────────────────────────────────────
     if do_arxiv:
@@ -654,12 +697,14 @@ def main():
             results = fetch_arxiv_batch(batch, session)
             for paper_id in batch:
                 entry = results.get(paper_id) or ARXIV_FALLBACK.get(paper_id)
+                entry = results.get(paper_id)
                 if entry:
                     entries.append(entry)
                     existing_sources.add(f"arxiv:{paper_id}")
                     fetched += 1
                     src_label = "(fallback)" if paper_id not in results else ""
                     print(f"  [{fetched:3d}] {entry['tags'][0][:65]} {src_label}")
+                    print(f"  [{fetched:3d}] {entry['tags'][0][:70]}")
                 else:
                     failed += 1
                     print(f"  [FAIL] {paper_id}")
