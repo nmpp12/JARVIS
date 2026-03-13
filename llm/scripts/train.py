@@ -55,6 +55,8 @@ def parse_args():
                         help="Generate seed ML/DL knowledge data before training")
     parser.add_argument("--output-dir", type=str, default="./output",
                         help="Output directory for data and checkpoints")
+    parser.add_argument("--max-cpu-threads", type=int, default=None,
+                        help="Cap PyTorch + DataLoader CPU threads (e.g. 2 for a 4-core laptop)")
     return parser.parse_args()
 
 
@@ -84,6 +86,15 @@ def generate_seed_data(output_dir: str) -> str:
 
 def main():
     args = parse_args()
+
+    # Cap CPU usage so the laptop stays usable
+    cpu_threads = args.max_cpu_threads or max(1, (os.cpu_count() or 4) // 2)
+    torch.set_num_threads(cpu_threads)
+    torch.set_num_interop_threads(max(1, cpu_threads // 2))
+    os.environ["OMP_NUM_THREADS"] = str(cpu_threads)
+    os.environ["MKL_NUM_THREADS"] = str(cpu_threads)
+    # DataLoader workers: 0 = load in main process (no extra processes at all)
+    num_dl_workers = max(0, cpu_threads - 1)
 
     # Load config from YAML or use defaults
     yaml_config = {}
@@ -181,7 +192,7 @@ def main():
         batch_size=training_config.batch_size,
         max_seq_len=model_config.max_seq_len,
         shuffle=True,
-        num_workers=data_cfg.get("num_workers", 4),
+        num_workers=num_dl_workers,
     )
 
     eval_loader = None
@@ -193,7 +204,7 @@ def main():
             batch_size=training_config.batch_size,
             max_seq_len=model_config.max_seq_len,
             shuffle=False,
-            num_workers=2,
+            num_workers=num_dl_workers,
         )
 
     # Create model

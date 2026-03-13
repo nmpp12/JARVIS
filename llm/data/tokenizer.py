@@ -178,7 +178,7 @@ class MOMTokenizer:
             vocab_size=self.vocab_size,
             model_type="bpe",
             character_coverage=0.9995,
-            num_threads=os.cpu_count(),
+            num_threads=max(1, (os.cpu_count() or 4) // 2),
             split_digits=True,
             byte_fallback=True,
             user_defined_symbols=user_defined_symbols,
