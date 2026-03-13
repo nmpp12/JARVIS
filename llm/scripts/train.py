@@ -143,7 +143,7 @@ def main():
         checkpoint_dir=train_cfg.get("checkpoint_dir", os.path.join(args.output_dir, "checkpoints")),
         save_every_steps=train_cfg.get("save_every_steps", 1000),
         eval_every_steps=train_cfg.get("eval_every_steps", 500),
-        log_every_steps=train_cfg.get("log_every_steps", 10),
+        log_every_steps=train_cfg.get("log_every_steps", 1),
         gradient_checkpointing=model_cfg.get("gradient_checkpointing", False),
         label_smoothing=train_cfg.get("label_smoothing", 0.0),
         early_stopping_patience=train_cfg.get("early_stopping_patience", 0),
