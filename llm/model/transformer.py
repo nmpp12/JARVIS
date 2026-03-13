@@ -357,13 +357,13 @@ class MOMTransformer(nn.Module):
         if use_cache:
             result["kv_caches"] = new_kv_caches
 
-        # Compute loss if labels provided
+        # Compute loss if labels provided.
+        # Labels are already shifted by the dataset (labels = tokens[1:], input_ids = tokens[:-1]),
+        # so logits[i] directly predicts labels[i] — no further shifting needed here.
         if labels is not None:
-            shift_logits = logits[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
             loss = F.cross_entropy(
-                shift_logits.view(-1, self.config.vocab_size),
-                shift_labels.view(-1),
+                logits.view(-1, self.config.vocab_size),
+                labels.view(-1),
                 ignore_index=-100,
                 label_smoothing=label_smoothing,
             )

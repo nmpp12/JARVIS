@@ -235,6 +235,7 @@ class Trainer:
         for epoch in range(self.config.num_epochs):
             self.epoch = epoch
             self.optimizer.zero_grad()
+            accumulated_steps = 0  # micro-batches accumulated since last optimizer step
 
             for step, batch in enumerate(self.train_loader):
                 # Move batch to device
@@ -260,9 +261,11 @@ class Trainer:
 
                 running_loss += loss.item()
                 tokens_processed += input_ids.numel()
+                accumulated_steps += 1
 
-                # Gradient accumulation step
-                if (step + 1) % self.config.gradient_accumulation_steps == 0:
+                # Optimizer step: on full accumulation OR at epoch end (flush partial)
+                is_last_batch = (step + 1 == len(self.train_loader))
+                if accumulated_steps == self.config.gradient_accumulation_steps or is_last_batch:
                     # Gradient clipping
                     if self.scaler:
                         self.scaler.unscale_(self.optimizer)
@@ -281,6 +284,7 @@ class Trainer:
                     self.optimizer.zero_grad()
                     self.global_step += 1
                     num_loss_updates += 1
+                    accumulated_steps = 0
 
                     # Logging
                     if self.global_step % self.config.log_every_steps == 0:
@@ -288,12 +292,12 @@ class Trainer:
                         elapsed = time.time() - start_time
                         tokens_per_sec = tokens_processed / elapsed
                         current_lr = self.scheduler.get_last_lr()[0]
-                        perplexity = math.exp(min(avg_loss * self.config.gradient_accumulation_steps, 20))
+                        perplexity = math.exp(min(avg_loss, 20))
 
                         log_entry = {
                             "step": self.global_step,
                             "epoch": epoch,
-                            "loss": avg_loss * self.config.gradient_accumulation_steps,
+                            "loss": avg_loss,
                             "perplexity": perplexity,
                             "lr": current_lr,
                             "grad_norm": grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm,
