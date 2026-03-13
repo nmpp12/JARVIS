@@ -92,13 +92,10 @@ class ModelConfig:
             use_bitnet=True,
             use_flash_attention=False,
             use_triton_kernels=False,
-            use_early_exit=True,
-            early_exit_confidence=0.85,
-            early_exit_min_layer=2,
+            use_early_exit=False,   # logits tensor too large with 100k vocab on CPU
             use_sliding_window=True,
             sliding_window_size=512,
-            use_token_pruning=True,
-            token_pruning_threshold=0.4,
+            use_token_pruning=False,
             kv_cache_quantize_bits=8,
         )
 
