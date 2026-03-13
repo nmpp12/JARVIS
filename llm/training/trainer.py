@@ -292,12 +292,12 @@ class Trainer:
                         elapsed = time.time() - start_time
                         tokens_per_sec = tokens_processed / elapsed
                         current_lr = self.scheduler.get_last_lr()[0]
-                        perplexity = math.exp(min(avg_loss * self.config.gradient_accumulation_steps, 20))
+                        perplexity = math.exp(min(avg_loss, 20))
 
                         log_entry = {
                             "step": self.global_step,
                             "epoch": epoch,
-                            "loss": avg_loss * self.config.gradient_accumulation_steps,
+                            "loss": avg_loss,
                             "perplexity": perplexity,
                             "lr": current_lr,
                             "grad_norm": grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm,
