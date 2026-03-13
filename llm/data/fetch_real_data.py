@@ -531,6 +531,10 @@ def fetch_paperswithcode(session: requests.Session, max_papers: int = 500) -> li
                 time.sleep(10)
                 continue
             if resp.status_code != 200:
+                print(f"  [pwc] HTTP {resp.status_code}: {resp.text[:200]}")
+                break
+            if not resp.text.strip():
+                print(f"  [pwc] empty response")
                 break
             data = resp.json()
             results = data.get("results", [])
