@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fetch real ML/DL training data from ArXiv, Wikipedia, and GitHub.
+Fetch real ML/DL training data from ArXiv, Wikipedia, GitHub, and Papers With Code.
 
 Usage:
     python -m llm.data.fetch_real_data
@@ -8,6 +8,7 @@ Usage:
     python -m llm.data.fetch_real_data --arxiv-only
     python -m llm.data.fetch_real_data --wiki-only
     python -m llm.data.fetch_real_data --github-only
+    python -m llm.data.fetch_real_data --pwc-only
 
 Token (optional, increases GitHub rate limit from 60 to 5000 req/hr):
     export GITHUB_TOKEN=ghp_...
@@ -513,6 +514,55 @@ def fetch_github_repo(owner: str, repo: str, category: str, subcategory: str,
     return entries
 
 
+def fetch_paperswithcode(session: requests.Session, max_papers: int = 500) -> list[dict]:
+    """Fetch top ML papers from the Papers With Code public REST API."""
+    entries = []
+    url = "https://paperswithcode.com/api/v1/papers/"
+    params = {"ordering": "-stars", "page_size": 50, "page": 1}
+
+    while len(entries) < max_papers:
+        try:
+            resp = session.get(url, params=params, timeout=15)
+            if resp.status_code == 429:
+                time.sleep(10)
+                continue
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            results = data.get("results", [])
+            if not results:
+                break
+            for paper in results:
+                title    = (paper.get("title") or "").strip()
+                abstract = (paper.get("abstract") or "").strip()
+                arxiv_id = (paper.get("arxiv_id") or "").strip()
+                if not title or not abstract:
+                    continue
+                src = f"pwc:{arxiv_id or title}"
+                category, subcategory = _categorize_arxiv(title, abstract)
+                lines = [f"<paper>", f"Title: {title}"]
+                if arxiv_id:
+                    lines.append(f"ArXiv: {arxiv_id}")
+                lines += ["", abstract, "</paper>"]
+                entries.append({
+                    "text": "\n".join(lines),
+                    "category": category,
+                    "subcategory": subcategory,
+                    "difficulty": "advanced",
+                    "source": src,
+                    "tags": [title],
+                })
+            if not data.get("next"):
+                break
+            params["page"] += 1
+            time.sleep(1)
+        except Exception as e:
+            print(f"  [pwc] error: {e}")
+            break
+
+    return entries
+
+
 def load_existing(path: str) -> list[dict]:
     if not os.path.exists(path):
         return []
@@ -535,7 +585,11 @@ def main():
     parser.add_argument("--arxiv-only", action="store_true")
     parser.add_argument("--wiki-only", action="store_true")
     parser.add_argument("--github-only", action="store_true")
+    parser.add_argument("--pwc-only", action="store_true")
     parser.add_argument("--no-github", action="store_true")
+    parser.add_argument("--no-pwc", action="store_true")
+    parser.add_argument("--pwc-max", type=int, default=500,
+                        help="Max papers to fetch from Papers With Code (default 500)")
     parser.add_argument("--delay", type=float, default=3.0)
     args = parser.parse_args()
 
@@ -554,9 +608,11 @@ def main():
         print(f"Loaded {len(existing)} existing entries.")
     existing_sources = {e.get("source", "") for e in entries}
 
-    do_arxiv  = not args.wiki_only  and not args.github_only
-    do_wiki   = not args.arxiv_only and not args.github_only
-    do_github = not args.arxiv_only and not args.wiki_only and not args.no_github
+    only = args.arxiv_only or args.wiki_only or args.github_only or args.pwc_only
+    do_arxiv  = args.arxiv_only  or (not only and True)
+    do_wiki   = args.wiki_only   or (not only and True)
+    do_github = args.github_only or (not only and not args.no_github)
+    do_pwc    = args.pwc_only    or (not only and not args.no_pwc)
 
     # ── ArXiv ─────────────────────────────────────────────────────────────────
     if do_arxiv:
@@ -634,6 +690,22 @@ def main():
                 print(f"  [fail] {full_name}")
             time.sleep(args.delay)
         print(f"  GitHub: {repo_fetched} repos fetched")
+
+    # ── Papers With Code ──────────────────────────────────────────────────────
+    if do_pwc:
+        print(f"\nFetching up to {args.pwc_max} papers from Papers With Code...")
+        pwc_entries = fetch_paperswithcode(session, max_papers=args.pwc_max)
+        new = 0
+        skipped = 0
+        for e in pwc_entries:
+            src = e["source"]
+            if src in existing_sources:
+                skipped += 1
+                continue
+            entries.append(e)
+            existing_sources.add(src)
+            new += 1
+        print(f"  PapersWithCode: {new} fetched, {skipped} skipped")
 
     # ── Save ──────────────────────────────────────────────────────────────────
     save_jsonl(entries, args.output)
