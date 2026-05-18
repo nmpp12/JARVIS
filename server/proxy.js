@@ -95,6 +95,32 @@ const ollamaProxy = createProxyMiddleware({
 // Use the proxy for all /ollama routes
 app.use('/ollama', ollamaProxy);
 
+// Yahoo Finance proxy — forwards /yahoo/* to query1.finance.yahoo.com
+// We must inject a desktop User-Agent because Yahoo blocks default Node UAs.
+const yahooProxy = createProxyMiddleware({
+  target: 'https://query1.finance.yahoo.com',
+  changeOrigin: true,
+  secure: true,
+  pathRewrite: { '^/yahoo': '' },
+  onProxyReq: (proxyReq) => {
+    proxyReq.setHeader(
+      'User-Agent',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+    proxyReq.setHeader('Accept', 'application/json, text/plain, */*');
+    proxyReq.setHeader('Accept-Language', 'en-US,en;q=0.9,pt;q=0.8');
+  },
+  onError: (err, req, res) => {
+    console.log('🔴 Yahoo proxy error:', err.message);
+    res.status(502).json({
+      error: 'Yahoo Finance unavailable',
+      code: 'YAHOO_PROXY_ERROR',
+      message: err.message,
+    });
+  },
+});
+app.use('/yahoo', yahooProxy);
+
 // MOM (custom LLM) status check
 function checkMOMStatus() {
   return new Promise((resolve) => {
