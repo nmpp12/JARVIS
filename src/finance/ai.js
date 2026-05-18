@@ -45,14 +45,14 @@ export class FinanceAI {
         return 'offline';
     }
 
-    async chat(userMessage, financialContext = '') {
+    async chat(userMessage, financialContext = '', marketContext = '') {
         if (this.mode === 'offline') {
             return this._offlineResponse(userMessage);
         }
 
-        const sysContent =
-            this.systemPrompt +
-            (financialContext ? `\n\nDados financeiros actuais do utilizador:\n${financialContext}` : '');
+        let sysContent = this.systemPrompt;
+        if (financialContext) sysContent += `\n\nDados financeiros actuais do utilizador:\n${financialContext}`;
+        if (marketContext) sysContent += `\n\nEstado dos mercados financeiros agora:\n${marketContext}`;
 
         const messages = [
             { role: 'system', content: sysContent },
@@ -130,6 +130,96 @@ export class FinanceAI {
         }
 
         return 'Posso ajudar-te com gestão financeira, poupança, orçamentos e investimentos.\n\n**Experimenta perguntar:**\n• "Como posso poupar mais?"\n• "Dicas sobre dívidas"\n• "Como criar um orçamento?"\n• "Conceitos de investimento"\n\n*Para respostas personalizadas com os teus dados, liga o servidor MOM ou Ollama nas Definições.*';
+    }
+
+    /**
+     * Produce a personalised market forecast that combines the user's budget,
+     * real market data and recent news headlines. Falls back to a rule-based
+     * recommendation when no AI backend is available.
+     */
+    async forecast({ budget, budgetText, marketSummary, marketStats, newsSummary }) {
+        if (this.mode === 'offline') {
+            return this._offlineForecast(budget, marketStats);
+        }
+
+        const prompt = `Com base nos dados abaixo, faz uma análise financeira personalizada para o utilizador.
+
+DADOS DO UTILIZADOR:
+${budgetText}
+
+MERCADOS HOJE:
+${marketSummary}
+
+NOTÍCIAS FINANCEIRAS RECENTES:
+${newsSummary}
+
+Responde nesta estrutura, em português europeu, conciso e prático:
+
+**1. A tua situação**
+(2-3 frases sobre o estado financeiro do utilizador)
+
+**2. O mercado hoje**
+(2-3 frases sobre o que se passa nos mercados, ligando às notícias)
+
+**3. O que deves considerar fazer**
+(3 recomendações numeradas, específicas e accionáveis baseadas na situação dele e no mercado)
+
+**Aviso**: termina com uma linha curta a lembrar que isto não é conselho de investimento profissional.`;
+
+        try {
+            const messages = [
+                { role: 'system', content: this.systemPrompt },
+                { role: 'user', content: prompt },
+            ];
+            if (this.mode === 'mom')    return await this._chatMOM(messages);
+            if (this.mode === 'ollama') return await this._chatOllama(messages);
+        } catch {
+            return this._offlineForecast(budget, marketStats);
+        }
+        return this._offlineForecast(budget, marketStats);
+    }
+
+    _offlineForecast(budget, market) {
+        const lines = [];
+        const monthly = budget?.monthlyBalance ?? 0;
+
+        lines.push('**1. A tua situação**');
+        if (monthly > 0) {
+            lines.push(`Estás a poupar ${monthly.toFixed(2)}€ este mês — é uma posição saudável.`);
+        } else if (monthly < 0) {
+            lines.push(`As despesas estão a ultrapassar as receitas em ${Math.abs(monthly).toFixed(2)}€. Atenção.`);
+        } else {
+            lines.push('Receitas e despesas estão equilibradas este mês.');
+        }
+
+        lines.push('\n**2. O mercado hoje**');
+        const ups = market?.upCount ?? 0;
+        const downs = market?.downCount ?? 0;
+        if (ups > downs) {
+            lines.push('A maioria dos índices está a subir hoje. Apetite por risco moderadamente positivo.');
+        } else if (downs > ups) {
+            lines.push('Os mercados estão maioritariamente em queda. Sinal de cautela e aversão ao risco.');
+        } else {
+            lines.push('Mercados mistos — sem direcção clara.');
+        }
+
+        lines.push('\n**3. O que deves considerar fazer**');
+        if (monthly < 0) {
+            lines.push('1. **Reduzir despesas variáveis** (Entretenimento, Compras) este mês.');
+            lines.push('2. **Adiar novos investimentos** até estabilizares a saúde do orçamento.');
+            lines.push('3. **Renegociar contratos** (telecom, energia) — poupanças de 20-30€/mês são comuns.');
+        } else if (monthly < 100) {
+            lines.push('1. **Constituir fundo de emergência** (3-6 meses de despesas) antes de investir.');
+            lines.push('2. **Automatizar transferência** de 50-100€ no dia do salário para poupança.');
+            lines.push('3. **Diversificar** — começa por um PPR ou ETF de índice mundial.');
+        } else {
+            lines.push('1. **DCA mensal** num ETF de índice mundial (ex.: VWCE) reduz risco de timing.');
+            lines.push('2. **Maximizar PPR** — benefício fiscal até 400€/ano (até 35 anos).');
+            lines.push('3. **Manter liquidez** suficiente para oportunidades — não investir tudo de uma vez.');
+        }
+
+        lines.push('\n*Isto não é conselho de investimento profissional. Consulta um consultor certificado antes de tomares decisões financeiras importantes.*');
+        return lines.join('\n');
     }
 
     clearHistory() {

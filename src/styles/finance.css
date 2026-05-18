@@ -437,6 +437,140 @@ body {
 ::-webkit-scrollbar-track  { background: transparent; }
 ::-webkit-scrollbar-thumb  { background: rgba(255,255,255,.12); border-radius: 2px; }
 
+/* ── Feature cards (Dashboard CTAs) ─────────────────────────────────────── */
+.fa-feature-card {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px;
+  margin-bottom: 10px; cursor: pointer;
+  color: var(--text); font-family: inherit;
+  transition: transform .12s, border-color .15s;
+  text-align: left;
+}
+.fa-feature-card:active { transform: scale(.98); border-color: var(--pri); }
+.fa-feature-card.market { background: linear-gradient(135deg, var(--card), rgba(16,185,129,.08)); border-color: rgba(16,185,129,.2); }
+.fa-feature-card.bank   { background: linear-gradient(135deg, var(--card), rgba(99,102,241,.08)); border-color: rgba(99,102,241,.2); }
+.fa-fc-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.fa-fc-ico { font-size: 22px; flex-shrink: 0; }
+.fa-fc-title { font-weight: 600; font-size: 14px; }
+.fa-fc-sub { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.fa-feature-card svg { color: var(--text3); flex-shrink: 0; }
+
+/* ── Market view ────────────────────────────────────────────────────────── */
+.fa-view-hdr { display: flex; align-items: center; gap: 10px; padding: 8px 0 14px; }
+.fa-view-title { flex: 1; font-size: 18px; font-weight: 600; }
+
+.fa-mk-sec { font-size: 12px; font-weight: 600; color: var(--text2); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .5px; }
+.fa-mk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fa-mk-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 11px 12px;
+}
+.fa-mk-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.fa-mk-name { font-weight: 600; font-size: 13px; }
+.fa-mk-sym { font-size: 10px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+.fa-mk-price { font-size: 17px; font-weight: 700; letter-spacing: -.5px; }
+.fa-mk-cur { font-size: 11px; color: var(--text3); font-weight: 500; }
+.fa-mk-change { font-size: 11px; font-weight: 600; margin-top: 2px; }
+.fa-mk-change.up   { color: var(--income); }
+.fa-mk-change.down { color: var(--expense); }
+
+.fa-forecast {
+  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(139,92,246,.06));
+  border: 1px solid rgba(99,102,241,.25);
+  border-radius: var(--r); padding: 14px 16px;
+  font-size: 14px; line-height: 1.6;
+}
+.fa-forecast strong { color: var(--pri); }
+
+.fa-news-list { display: flex; flex-direction: column; gap: 6px; }
+.fa-news-item {
+  display: block; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 11px 12px;
+  text-decoration: none; color: var(--text);
+  transition: border-color .15s;
+}
+.fa-news-item:active { border-color: var(--pri); }
+.fa-news-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.fa-news-meta { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--text3); }
+.fa-news-pub { font-weight: 600; }
+
+.fa-disclaimer {
+  margin-top: 16px; padding: 10px 14px;
+  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2);
+  border-radius: var(--r-sm); font-size: 11px; color: var(--warn);
+}
+
+.fa-loading,
+.fa-loading-small {
+  text-align: center; padding: 30px 20px;
+  color: var(--text2); font-size: 13px;
+}
+.fa-loading-small { padding: 10px 0; font-size: 12px; }
+
+/* ── Bank modal ─────────────────────────────────────────────────────────── */
+.fa-bank-info {
+  font-size: 12px; line-height: 1.6; color: var(--text2);
+  background: rgba(245,158,11,.06); border: 1px solid rgba(245,158,11,.18);
+  border-radius: var(--r-sm); padding: 11px 13px; margin-bottom: 16px;
+}
+.fa-bank-info strong { color: var(--warn); }
+
+.fa-bank-opt {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px;
+  margin-bottom: 12px;
+}
+.fa-bank-opt-hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.fa-bank-opt-title { font-weight: 600; font-size: 14px; }
+.fa-bank-opt-sub { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+.fa-bank-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fa-bank-actions .fa-btn { flex: 1; min-width: 120px; padding: 10px 14px; font-size: 13px; }
+.fa-bank-hint { font-size: 11px; color: var(--text3); margin-top: 8px; line-height: 1.5; }
+.fa-bank-hint code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; font-size: 10px; }
+
+/* ── Import preview ─────────────────────────────────────────────────────── */
+.fa-import-summary {
+  background: var(--bg3); border-radius: var(--r-sm);
+  padding: 10px 14px; margin-bottom: 12px;
+  font-size: 13px;
+}
+.fa-import-totals { display: flex; gap: 12px; margin-top: 5px; font-weight: 600; font-size: 13px; }
+.fa-import-totals .up   { color: var(--income); }
+.fa-import-totals .down { color: var(--expense); }
+
+.fa-import-list {
+  max-height: 350px; overflow-y: auto;
+  background: var(--bg3); border-radius: var(--r-sm);
+  padding: 6px; margin-bottom: 14px;
+}
+.fa-import-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.fa-import-row:last-child { border-bottom: none; }
+.fa-import-info { flex: 1; min-width: 0; }
+.fa-import-cat { font-size: 12px; font-weight: 600; color: var(--pri); }
+.fa-import-desc { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fa-import-date { font-size: 10px; color: var(--text3); margin-top: 1px; }
+.fa-import-amt { font-weight: 600; font-size: 13px; flex-shrink: 0; }
+.fa-import-amt.inc { color: var(--income); }
+.fa-import-amt.exp { color: var(--expense); }
+
+/* ── Strong chat suggestion ─────────────────────────────────────────────── */
+.fa-sug-strong {
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--pri), #8b5cf6);
+  border: none; border-radius: 16px;
+  padding: 6px 14px; color: #fff;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 2px 8px rgba(99,102,241,.3);
+}
+.fa-sug-strong:active { transform: scale(.96); }
+
 /* ── Desktop safety margin ──────────────────────────────────────────────── */
 @media (min-width: 480px) {
   .fa-modal { border-radius: 22px; margin-bottom: 20px; }

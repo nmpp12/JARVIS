@@ -1,6 +1,8 @@
 import { TransactionStore, CATEGORIES, CATEGORY_COLORS } from './store.js';
 import { FinanceAI } from './ai.js';
 import { FinanceCharts } from './charts.js';
+import { MarketDataService, DEFAULT_SYMBOLS } from './market.js';
+import { BankIntegration } from './bank.js';
 
 const MONTH_NAMES = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -19,8 +21,13 @@ export class FinanceApp {
         this.store = new TransactionStore();
         this.ai = new FinanceAI();
         this.charts = new FinanceCharts();
+        this.market = new MarketDataService();
+        this.bank = new BankIntegration();
         this.tab = 'dashboard';
+        this.view = null;            // null | 'market' — full-screen overlay views
         this.aiMode = 'offline';
+        this.marketAvailable = false;
+        this.marketCache = null;     // { quotes, news, forecast, fetchedAt }
         const now = new Date();
         this.month = now.getMonth();
         this.year = now.getFullYear();
@@ -29,6 +36,9 @@ export class FinanceApp {
     async init() {
         this.render();
         this.aiMode = await this.ai.initialize();
+        this.marketAvailable = await this.market.healthCheck();
+        // Refresh dashboard quietly to show market card status
+        if (this.tab === 'dashboard') this._renderTab();
     }
 
     // ─── Top-level render ────────────────────────────────────────────────────
@@ -92,6 +102,7 @@ export class FinanceApp {
     _renderTab() {
         const main = document.getElementById('faMain');
         if (!main) return;
+        if (this.view === 'market') { this._renderMarketView(main); return; }
         switch (this.tab) {
             case 'dashboard':    this._renderDashboard(main); break;
             case 'transactions': this._renderTransactions(main); break;
@@ -139,6 +150,28 @@ export class FinanceApp {
 
   ${insightHtml}
 
+  <button class="fa-feature-card market" id="openMarket">
+    <div class="fa-fc-left">
+      <div class="fa-fc-ico">📈</div>
+      <div>
+        <div class="fa-fc-title">Mercado &amp; Notícias</div>
+        <div class="fa-fc-sub">${this.marketAvailable ? 'Análise IA com dados reais do Yahoo Finance' : 'Inicia o servidor de proxy para activar'}</div>
+      </div>
+    </div>
+    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+  </button>
+
+  <button class="fa-feature-card bank" id="openBank">
+    <div class="fa-fc-left">
+      <div class="fa-fc-ico">🏦</div>
+      <div>
+        <div class="fa-fc-title">Conectar Banco / Moey!</div>
+        <div class="fa-fc-sub">${this._bankCardStatus()}</div>
+      </div>
+    </div>
+    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+  </button>
+
   <div class="fa-row-header">
     <h2>Transações Recentes</h2>
     <button class="fa-link" data-tab="transactions">Ver todas</button>
@@ -153,7 +186,22 @@ export class FinanceApp {
         el.querySelector('[data-tab="transactions"]')?.addEventListener('click', () => {
             this.tab = 'transactions'; this.render();
         });
+        el.querySelector('#openMarket')?.addEventListener('click', () => {
+            this.view = 'market'; this.render();
+        });
+        el.querySelector('#openBank')?.addEventListener('click', () => this._showBankModal());
         this._attachDeleteListeners(el);
+    }
+
+    _bankCardStatus() {
+        const conns = this.bank.getConnections();
+        const moey = conns.moey;
+        if (moey?.lastSync) {
+            const d = new Date(moey.lastSync);
+            return `Moey! (demo) — última sincronização ${d.toLocaleDateString('pt')}`;
+        }
+        if (moey) return 'Moey! ligado (modo demo) — toca para sincronizar';
+        return 'Importa extracto CSV ou activa modo demo';
     }
 
     _renderTransactions(el) {
@@ -329,6 +377,7 @@ export class FinanceApp {
   </div>
   <div class="fa-chat-foot">
     <div class="fa-sugs">
+      <button class="fa-sug-strong" id="openMarketFromChat">📈 Ver mercado &amp; análise IA</button>
       <button class="fa-sug" data-msg="Como posso poupar mais dinheiro?">💰 Poupar</button>
       <button class="fa-sug" data-msg="Analisa a minha situação financeira este mês">📊 Análise</button>
       <button class="fa-sug" data-msg="Como devo investir as minhas poupanças?">📈 Investir</button>
@@ -356,18 +405,337 @@ export class FinanceApp {
             const balance = this.store.getBalance();
             const ctx = `Saldo total: ${this._fmt(balance, cur)}\nReceitas este mês: ${this._fmt(stats.income, cur)}\nDespesas este mês: ${this._fmt(stats.expense, cur)}\nSaldo mensal: ${this._fmt(stats.income - stats.expense, cur)}`;
 
-            const reply = await this.ai.chat(msg, ctx);
+            const marketCtx = this.marketCache
+                ? this.market.summarize(this.marketCache.quotes) + '\n\nNotícias:\n' + this.market.summarizeNews(this.marketCache.news, 4)
+                : '';
+
+            const reply = await this.ai.chat(msg, ctx, marketCtx);
             document.querySelector('.fa-msg.typing')?.remove();
             this._appendMsg('assistant', reply);
         };
 
         document.getElementById('chatSend').addEventListener('click', sendMsg);
         document.getElementById('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMsg(); });
+        document.getElementById('openMarketFromChat')?.addEventListener('click', () => {
+            this.view = 'market';
+            this.tab = 'dashboard';
+            this.render();
+        });
         el.querySelectorAll('.fa-sug').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 document.getElementById('chatInput').value = e.target.dataset.msg;
                 sendMsg();
             });
+        });
+    }
+
+    // ─── Market view (full screen) ───────────────────────────────────────────
+
+    _renderMarketView(el) {
+        const cached = this.marketCache;
+        const stale = !cached || Date.now() - cached.fetchedAt > 5 * 60_000;
+
+        el.innerHTML = `
+<div class="fa-section">
+  <div class="fa-view-hdr">
+    <button class="fa-icon-btn" id="closeMarketView" aria-label="Voltar">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <h2 class="fa-view-title">Mercado &amp; Notícias</h2>
+    <button class="fa-icon-btn" id="refreshMarket" aria-label="Atualizar">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    </button>
+  </div>
+
+  <div id="marketContent">
+    ${!this.marketAvailable
+        ? `<div class="fa-empty">⚠ Servidor de proxy indisponível.<br><br><span style="font-size:12px">Inicia o servidor com <code>npm run dev</code> para activar os dados de mercado em directo do Yahoo Finance.</span></div>`
+        : (!cached || stale)
+            ? `<div class="fa-loading">A obter dados do mercado…</div>`
+            : this._buildMarketHTML(cached)
+    }
+  </div>
+</div>`;
+
+        document.getElementById('closeMarketView').addEventListener('click', () => {
+            this.view = null;
+            this.tab = 'dashboard';
+            this.render();
+        });
+        document.getElementById('refreshMarket').addEventListener('click', () => this._loadMarketData(true));
+
+        if (this.marketAvailable && (!cached || stale)) this._loadMarketData(false);
+    }
+
+    async _loadMarketData(force) {
+        const content = document.getElementById('marketContent');
+        if (!content) return;
+        if (force || !this.marketCache) {
+            content.innerHTML = `<div class="fa-loading">A obter dados do mercado…</div>`;
+        }
+
+        try {
+            const [quotes, news] = await Promise.all([
+                this.market.fetchQuotes(DEFAULT_SYMBOLS),
+                this.market.fetchNews('stocks economy markets', 8),
+            ]);
+
+            this.marketCache = { quotes, news, forecast: null, fetchedAt: Date.now() };
+            if (content) content.innerHTML = this._buildMarketHTML(this.marketCache);
+            this._attachMarketListeners();
+
+            // Auto-generate forecast in background
+            this._generateForecast();
+        } catch (e) {
+            if (content) content.innerHTML = `<div class="fa-empty">Erro ao obter dados: ${this._esc(e.message)}</div>`;
+        }
+    }
+
+    _buildMarketHTML(cache) {
+        const { quotes, news, forecast } = cache;
+        const groups = {
+            'Índices':      quotes.filter((q) => q.group === 'index'),
+            'Cripto':       quotes.filter((q) => q.group === 'crypto'),
+            'Câmbio':       quotes.filter((q) => q.group === 'fx'),
+            'Commodities':  quotes.filter((q) => q.group === 'commodity'),
+        };
+
+        let html = '';
+
+        for (const [label, list] of Object.entries(groups)) {
+            if (!list.length) continue;
+            html += `<h3 class="fa-mk-sec">${label}</h3>`;
+            html += '<div class="fa-mk-grid">';
+            for (const q of list) {
+                const up = q.changePct >= 0;
+                html += `
+<div class="fa-mk-card">
+  <div class="fa-mk-top">
+    <div class="fa-mk-name">${this._esc(q.name)}</div>
+    <div class="fa-mk-sym">${this._esc(q.symbol)}</div>
+  </div>
+  <div class="fa-mk-price">${q.price.toFixed(q.price < 10 ? 4 : 2)} <span class="fa-mk-cur">${this._esc(q.currency)}</span></div>
+  <div class="fa-mk-change ${up ? 'up' : 'down'}">
+    ${up ? '▲' : '▼'} ${up ? '+' : ''}${q.change.toFixed(2)} (${up ? '+' : ''}${q.changePct.toFixed(2)}%)
+  </div>
+</div>`;
+            }
+            html += '</div>';
+        }
+
+        html += '<h3 class="fa-mk-sec">Análise IA &amp; Recomendações</h3>';
+        if (forecast) {
+            html += `<div class="fa-forecast">${this._mdToHtml(forecast)}</div>
+                     <button class="fa-btn ghost full" id="regenForecast" style="margin-top:10px">Pedir nova análise</button>`;
+        } else {
+            html += `<div class="fa-card"><div class="fa-loading-small">A gerar análise personalizada…</div></div>`;
+        }
+
+        html += '<h3 class="fa-mk-sec">Notícias Financeiras</h3>';
+        if (!news.length) {
+            html += '<div class="fa-empty-sm">Sem notícias disponíveis.</div>';
+        } else {
+            html += '<div class="fa-news-list">';
+            for (const n of news) {
+                const time = n.publishedAt ? n.publishedAt.toLocaleDateString('pt', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+                html += `
+<a class="fa-news-item" href="${this._esc(n.link)}" target="_blank" rel="noopener noreferrer">
+  <div class="fa-news-title">${this._esc(n.title)}</div>
+  <div class="fa-news-meta">
+    <span class="fa-news-pub">${this._esc(n.publisher || '')}</span>
+    ${time ? `<span class="fa-news-time">${time}</span>` : ''}
+  </div>
+</a>`;
+            }
+            html += '</div>';
+        }
+
+        html += '<div class="fa-disclaimer">⚠ Informação a título informativo. Não constitui aconselhamento financeiro.</div>';
+        return html;
+    }
+
+    _attachMarketListeners() {
+        document.getElementById('regenForecast')?.addEventListener('click', () => {
+            if (this.marketCache) {
+                this.marketCache.forecast = null;
+                const c = document.getElementById('marketContent');
+                if (c) c.innerHTML = this._buildMarketHTML(this.marketCache);
+                this._attachMarketListeners();
+                this._generateForecast();
+            }
+        });
+    }
+
+    async _generateForecast() {
+        if (!this.marketCache) return;
+        const cur = this.store.getSettings().currency;
+        const stats = this.store.getMonthlyStats(this.month, this.year);
+        const balance = this.store.getBalance();
+        const catStats = this.store.getCategoryStats(this.month, this.year);
+        const topCats = Object.entries(catStats).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        const monthlyBalance = stats.income - stats.expense;
+        const sym = { EUR: '€', USD: '$', GBP: '£', BRL: 'R$' }[cur] || cur;
+
+        const budgetText = [
+            `Saldo total: ${this._fmt(balance, cur)}`,
+            `Receitas este mês: ${this._fmt(stats.income, cur)}`,
+            `Despesas este mês: ${this._fmt(stats.expense, cur)}`,
+            `Saldo mensal: ${monthlyBalance >= 0 ? '+' : '-'}${sym}${Math.abs(monthlyBalance).toFixed(2)}`,
+            topCats.length ? `Categorias com mais despesa: ${topCats.map(([c, v]) => `${c} (${this._fmt(v, cur)})`).join(', ')}` : '',
+        ].filter(Boolean).join('\n');
+
+        const upCount   = this.marketCache.quotes.filter((q) => q.changePct >= 0).length;
+        const downCount = this.marketCache.quotes.filter((q) => q.changePct <  0).length;
+
+        const forecast = await this.ai.forecast({
+            budget: { monthlyBalance, balance, income: stats.income, expense: stats.expense },
+            budgetText,
+            marketSummary: this.market.summarize(this.marketCache.quotes),
+            marketStats: { upCount, downCount },
+            newsSummary: this.market.summarizeNews(this.marketCache.news),
+        });
+
+        this.marketCache.forecast = forecast;
+
+        // Re-render only if user is still in market view
+        if (this.view === 'market') {
+            const c = document.getElementById('marketContent');
+            if (c) c.innerHTML = this._buildMarketHTML(this.marketCache);
+            this._attachMarketListeners();
+        }
+    }
+
+    // ─── Bank / Moey! modal ──────────────────────────────────────────────────
+
+    _showBankModal() {
+        const conns = this.bank.getConnections();
+        const moey = conns.moey;
+
+        const modal = this._modal(`
+<div class="fa-modal-hdr">
+  <h2>Conectar Banco</h2>
+  <button class="fa-icon-btn" id="closeBank">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+  </button>
+</div>
+
+<div class="fa-bank-info">
+  <strong>Sobre integração bancária em Portugal:</strong><br>
+  A ligação directa a um banco como Moey! (sincronização em tempo real) requer uma licença AISP/PSD2 emitida pelo Banco de Portugal — só fornecedores licenciados podem aceder à Open Banking API. Esta app oferece duas alternativas legais:
+</div>
+
+<div class="fa-bank-opt">
+  <div class="fa-bank-opt-hdr">
+    <div>
+      <div class="fa-bank-opt-title">📱 Moey! — Modo Demo</div>
+      <div class="fa-bank-opt-sub">Importa transações de exemplo para experimentares a funcionalidade</div>
+    </div>
+    ${moey ? '<span class="fa-badge success">Ligado</span>' : ''}
+  </div>
+  <div class="fa-bank-actions">
+    ${moey
+      ? `<button class="fa-btn primary" id="syncMoey">Sincronizar agora</button>
+         <button class="fa-btn ghost" id="disconnectMoey">Desligar</button>`
+      : `<button class="fa-btn primary full" id="connectMoey">Ligar (modo demo)</button>`}
+  </div>
+</div>
+
+<div class="fa-bank-opt">
+  <div class="fa-bank-opt-hdr">
+    <div>
+      <div class="fa-bank-opt-title">📄 Importar extracto CSV</div>
+      <div class="fa-bank-opt-sub">Exporta o extracto do teu banco (Moey!, ActivoBank, CGD...) em CSV e importa aqui</div>
+    </div>
+  </div>
+  <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none">
+  <button class="fa-btn secondary full" id="pickCsv">Escolher ficheiro CSV</button>
+  <div class="fa-bank-hint">Formatos suportados: data, descrição, valor (ou débito/crédito separados). Decimal pode ser <code>,</code> ou <code>.</code></div>
+</div>
+`);
+
+        document.getElementById('closeBank').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        document.getElementById('connectMoey')?.addEventListener('click', () => {
+            this.bank.connectMockBank('moey', 'Moey!');
+            modal.remove();
+            this._showBankModal();
+        });
+
+        document.getElementById('disconnectMoey')?.addEventListener('click', () => {
+            if (confirm('Desligar Moey! demo?')) {
+                this.bank.disconnect('moey');
+                modal.remove();
+                this._renderTab();
+            }
+        });
+
+        document.getElementById('syncMoey')?.addEventListener('click', () => {
+            const txs = this.bank.fetchDemoTransactions('moey');
+            this._showImportPreview(txs, 'Moey! (demo)');
+            modal.remove();
+        });
+
+        const fileInput = document.getElementById('csvFile');
+        document.getElementById('pickCsv').addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const text = await file.text();
+            const parsed = this.bank.parseCSV(text);
+            if (!parsed.length) {
+                alert('Não foi possível extrair transações deste ficheiro.\nVerifica se tem cabeçalhos como "Data", "Descrição", "Valor".');
+                return;
+            }
+            modal.remove();
+            this._showImportPreview(parsed, file.name);
+        });
+    }
+
+    _showImportPreview(transactions, sourceLabel) {
+        const cur = this.store.getSettings().currency;
+        const totalInc = transactions.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0);
+        const totalExp = transactions.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
+
+        const modal = this._modal(`
+<div class="fa-modal-hdr">
+  <h2>Pré-visualizar Import</h2>
+  <button class="fa-icon-btn" id="closeImport">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+  </button>
+</div>
+<div class="fa-import-summary">
+  <div><strong>${transactions.length}</strong> transações de <em>${this._esc(sourceLabel)}</em></div>
+  <div class="fa-import-totals">
+    <span class="up">+${this._fmt(totalInc, cur)}</span>
+    <span class="down">-${this._fmt(totalExp, cur)}</span>
+  </div>
+</div>
+<div class="fa-import-list">
+${transactions.slice(0, 50).map((t) => `
+  <div class="fa-import-row">
+    <div class="fa-import-info">
+      <div class="fa-import-cat">${this._esc(t.category)}</div>
+      <div class="fa-import-desc">${this._esc(t.description)}</div>
+      <div class="fa-import-date">${this._esc(t.date)}</div>
+    </div>
+    <div class="fa-import-amt ${t.type === 'income' ? 'inc' : 'exp'}">${t.type === 'income' ? '+' : '-'}${this._fmt(t.amount, cur)}</div>
+  </div>
+`).join('')}
+${transactions.length > 50 ? `<div class="fa-empty-sm">+${transactions.length - 50} mais…</div>` : ''}
+</div>
+<button class="fa-btn primary full" id="confirmImport">Importar ${transactions.length} transações</button>
+<button class="fa-btn ghost full" id="cancelImport" style="margin-top:8px">Cancelar</button>
+`);
+
+        document.getElementById('closeImport').addEventListener('click', () => modal.remove());
+        document.getElementById('cancelImport').addEventListener('click', () => modal.remove());
+
+        document.getElementById('confirmImport').addEventListener('click', () => {
+            for (const t of transactions) this.store.addTransaction(t);
+            modal.remove();
+            this.render();
+            alert(`${transactions.length} transações importadas com sucesso.`);
         });
     }
 
