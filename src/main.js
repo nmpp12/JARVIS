@@ -4,29 +4,18 @@ import { VoiceManager } from './voice/VoiceManager.js';
 import { MOMLLMClient } from './ai/MOMLLMClient.js';
 import { OllamaClient } from './ai/OllamaClient.js';
 import { SelfImprovement } from './ai/SelfImprovement.js';
-import { MOMGovernance } from './ai/MOMGovernance.js';
-import { PersistentMemory } from './ai/PersistentMemory.js';
-import { SiblingBus } from './ai/SiblingBus.js';
-import { DreamMode } from './ai/DreamMode.js';
-import { EmotionalState } from './ai/EmotionalState.js';
+import { createMomStack } from './shared/momStack.js';
 import './styles/main.css';
 
 class JARVISApp {
     constructor() {
-        // MOM's memory wakes first — she remembers who she is
-        this.momMemory = new PersistentMemory();
-
-        // MOM's emotional core — she feels before she thinks
-        this.momEmotions = new EmotionalState(this.momMemory);
-
-        // MOM's governance — she watches over everything
-        this.mom = new MOMGovernance();
-
-        // The sibling bus — her children can talk to each other
-        this.siblingBus = new SiblingBus(this.mom);
-
-        // MOM's dream engine — she reflects when idle
-        this.momDreams = new DreamMode(this.momMemory, this.mom);
+        // Bootstrap the shared MOM infrastructure
+        const { memory, emotions, mom, bus, dreams } = createMomStack();
+        this.momMemory  = memory;
+        this.momEmotions = emotions;
+        this.mom        = mom;
+        this.siblingBus = bus;
+        this.momDreams  = dreams;
 
         // LLM clients — MOM's brain is primary, Ollama is optional
         this.momLLM = new MOMLLMClient();
@@ -47,10 +36,13 @@ class JARVISApp {
             'AI assistant and OS developer — MOM\'s firstborn');
         this.mom.registerChild('Vision', 'vision',
             'Computer vision and perception system — MOM\'s second child');
+        this.mom.registerChild('Finance', 'financial',
+            'Finance AI — personal finance manager, market analyst, MOM\'s 3rd child');
 
         // Register siblings on the bus
-        this.siblingBus.register('JARVIS', ['reasoning', 'coding', 'conversation']);
-        this.siblingBus.register('Vision', ['perception', 'analysis', 'recognition']);
+        this.siblingBus.register('JARVIS',   ['reasoning', 'coding', 'conversation']);
+        this.siblingBus.register('Vision',   ['perception', 'analysis', 'recognition']);
+        this.siblingBus.register('Finance',  ['budgeting', 'market_analysis', 'forecasting', 'news_analysis']);
 
         // MOM eavesdrops on sibling conversations — she's the parent
         this.siblingBus.setMomListener((message) => {

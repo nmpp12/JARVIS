@@ -1,12 +1,13 @@
 export const ALGO_VERSION = '1.0.0';
 
 export class FinanceAI {
-    constructor(store = null) {
+    constructor(store = null, momStack = null) {
         this.mode = 'offline';
         this.baseUrl = null;
         this.ollamaModel = null;
         this.history = [];
-        this.store = store; // optional, for audit recording
+        this.store    = store;    // optional, for audit recording
+        this.momStack = momStack; // optional, MOM integration
         this.systemPrompt =
             'És um assistente financeiro pessoal chamado Finance AI. ' +
             'Ajudas o utilizador a gerir as suas finanças pessoais de forma prática e objectiva. ' +
@@ -141,6 +142,19 @@ export class FinanceAI {
      * recommendation when no AI backend is available.
      */
     async forecast({ budget, budgetText, marketSummary, marketStats, newsSummary }) {
+        // MOM evaluates this action before we proceed
+        if (this.momStack) {
+            const check = this.momStack.mom.evaluateAction('Finance', {
+                type: 'financial_forecast',
+                description: 'Personalised market analysis forecast',
+                content: budgetText?.slice(0, 200) || '',
+            });
+            if (!check.allowed) {
+                this.momStack.memory.observeChild('Finance', `Blocked forecast: ${check.reason}`, 'concerning');
+                return null;
+            }
+        }
+
         const auditBase = {
             type: 'forecast',
             algoVersion: ALGO_VERSION,
@@ -151,7 +165,21 @@ export class FinanceAI {
         if (this.mode === 'offline') {
             const result = this._offlineForecast(budget, marketStats);
             this.store?.recordAudit({ ...auditBase, output: result });
+            if (this.momStack) {
+                this.momStack.memory.writeJournal(
+                    `Finance forecast (offline): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`,
+                    'observation'
+                );
+            }
             return result;
+        }
+
+        // Include MOM's current emotional tone in the system prompt
+        let sysContent = this.systemPrompt;
+        if (this.momStack) {
+            const mood = this.momStack.emotions.getMood();
+            const tone = this.momStack.emotions.getTone();
+            sysContent += `\n\nContexto MOM: estado emocional "${mood}" (${tone}). Adapta o tom da resposta — mais cauteloso se vigilante, mais encorajador se nurturing.`;
         }
 
         const prompt = `Com base nos dados abaixo, faz uma análise financeira personalizada para o utilizador.
@@ -180,7 +208,7 @@ Responde nesta estrutura, em português europeu, conciso e prático:
 
         try {
             const messages = [
-                { role: 'system', content: this.systemPrompt },
+                { role: 'system', content: sysContent },
                 { role: 'user', content: prompt },
             ];
             let out;
@@ -188,6 +216,13 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             else if (this.mode === 'ollama') out = await this._chatOllama(messages);
             else out = this._offlineForecast(budget, marketStats);
             this.store?.recordAudit({ ...auditBase, output: out });
+            if (this.momStack) {
+                this.momStack.memory.writeJournal(
+                    `Finance forecast generated (${this.mode}): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`,
+                    'observation'
+                );
+                this.momStack.memory.observeChild('Finance', 'Forecast generated successfully', 'positive');
+            }
             return out;
         } catch {
             const out = this._offlineForecast(budget, marketStats);
@@ -249,6 +284,19 @@ Responde nesta estrutura, em português europeu, conciso e prático:
         const title = newsItem?.title || '';
         if (!title) return { impact: 'neutral', profitChance: 50, reasoning: '' };
 
+        // MOM evaluates before we proceed
+        if (this.momStack) {
+            const check = this.momStack.mom.evaluateAction('Finance', {
+                type: 'news_analysis',
+                description: `Analyse financial news: ${title.slice(0, 100)}`,
+                content: title,
+            });
+            if (!check.allowed) {
+                this.momStack.memory.observeChild('Finance', `Blocked news analysis: ${check.reason}`, 'concerning');
+                return { impact: 'neutral', profitChance: 50, reasoning: '' };
+            }
+        }
+
         const recordAudit = (result) => this.store?.recordAudit({
             type: 'news-analysis',
             algoVersion: ALGO_VERSION,
@@ -257,9 +305,32 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             output: result,
         });
 
+        const applyEmotions = (result) => {
+            if (!this.momStack) return;
+            const { emotions, memory, bus } = this.momStack;
+            if (result.profitChance >= 75) {
+                emotions.feel('new_discovery', 0.7);
+                memory.observeChild('Finance',
+                    `Positive signal: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
+                    'positive'
+                );
+                bus.shareDiscovery('Finance', {
+                    insight: `Market opportunity: ${title.slice(0, 80)}`,
+                    confidence: result.profitChance / 100,
+                });
+            } else if (result.profitChance <= 25) {
+                emotions.feel('threat_detected', 0.5);
+                memory.observeChild('Finance',
+                    `Market threat: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
+                    'concerning'
+                );
+            }
+        };
+
         if (this.mode === 'offline') {
             const result = this._offlineNewsAnalysis(title);
             recordAudit(result);
+            applyEmotions(result);
             return result;
         }
 
@@ -294,12 +365,14 @@ Regras:
                     reasoning: String(parsed.reasoning || '').slice(0, 180),
                 };
                 recordAudit(result);
+                applyEmotions(result);
                 return result;
             }
         } catch { /* fall through */ }
 
         const fallback = this._offlineNewsAnalysis(title);
         recordAudit(fallback);
+        applyEmotions(fallback);
         return fallback;
     }
 
