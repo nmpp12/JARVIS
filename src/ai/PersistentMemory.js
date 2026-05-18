@@ -57,12 +57,13 @@ export class PersistentMemory {
     /**
      * Write a journal entry — MOM's inner thoughts
      */
-    writeJournal(entry, category = 'observation') {
+    writeJournal(entry, category = 'observation', meta = {}) {
         const record = {
             timestamp: new Date().toISOString(),
             awakening: this.memory.awakening,
             category, // observation, concern, pride, reflection, decision
             entry,
+            ...meta, // optional flags such as { crossRef: true }
         };
 
         this.memory.journal.push(record);
@@ -211,10 +212,12 @@ export class PersistentMemory {
         this.memory.milestones.push(milestone);
         this._save();
 
-        // Also journal it
+        // Also journal it (cross-reference — excluded from recall to avoid
+        // duplicating matches that already surface in the milestones list)
         this.writeJournal(
             `Milestone reached: ${title} — ${description}`,
-            'pride'
+            'pride',
+            { crossRef: true }
         );
 
         return milestone;
@@ -335,7 +338,7 @@ export class PersistentMemory {
         const lower = keyword.toLowerCase();
         const results = {
             journal: this.memory.journal.filter(j =>
-                j.entry.toLowerCase().includes(lower)
+                !j.crossRef && j.entry.toLowerCase().includes(lower)
             ),
             lessons: this.memory.lessons.filter(l =>
                 l.lesson.toLowerCase().includes(lower) ||

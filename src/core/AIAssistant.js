@@ -16,8 +16,11 @@ export class AIAssistant {
     async processCommand(text, context = {}) {
         this.conversationHistory.push({ role: 'user', content: text });
 
-        if (this.conversationHistory.length > this.maxHistory) {
-            this.conversationHistory = this.conversationHistory.slice(-this.maxHistory);
+        // Reserve one slot for the upcoming assistant response so that
+        // after we append it the stored history still satisfies maxHistory.
+        const inputCap = Math.max(1, this.maxHistory - 1);
+        if (this.conversationHistory.length > inputCap) {
+            this.conversationHistory = this.conversationHistory.slice(-inputCap);
         }
 
         const messages = [
@@ -48,6 +51,11 @@ export class AIAssistant {
             }
 
             this.conversationHistory.push({ role: 'assistant', content: responseText });
+
+            // Final trim — guarantees the stored history never exceeds maxHistory
+            if (this.conversationHistory.length > this.maxHistory) {
+                this.conversationHistory = this.conversationHistory.slice(-this.maxHistory);
+            }
 
             if (this.selfImprovement?.isEnabled?.()) {
                 this.selfImprovement.recordInteraction(text, responseText);
