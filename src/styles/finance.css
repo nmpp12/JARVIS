@@ -601,6 +601,65 @@ body {
 .fa-import-amt.inc { color: var(--income); }
 .fa-import-amt.exp { color: var(--expense); }
 
+/* ── Audit view (Histórico IA) ─────────────────────────────────────────── */
+.fa-audit-summary {
+  background: linear-gradient(135deg, rgba(99,102,241,.10), rgba(139,92,246,.06));
+  border: 1px solid rgba(99,102,241,.25);
+  border-radius: var(--r); padding: 16px 18px;
+  margin-bottom: 14px; text-align: center;
+}
+.fa-au-big {
+  font-size: 32px; font-weight: 700;
+  background: linear-gradient(135deg, var(--pri), #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -1px;
+}
+.fa-au-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+.fa-audit-list { display: flex; flex-direction: column; gap: 8px; }
+
+.fa-au-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 12px;
+  transition: border-color .2s;
+}
+.fa-au-card.correct { border-left: 3px solid var(--income); }
+.fa-au-card.wrong   { border-left: 3px solid var(--expense); }
+
+.fa-au-hdr { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.fa-au-icon { font-size: 20px; flex-shrink: 0; }
+.fa-au-meta { flex: 1; min-width: 0; }
+.fa-au-title { font-size: 13px; font-weight: 600; line-height: 1.3; }
+.fa-au-time  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.fa-au-headline { font-size: 12px; color: var(--text); line-height: 1.4; margin: 4px 0 6px; }
+.fa-au-reason   { font-size: 12px; color: var(--text2); line-height: 1.4; margin-bottom: 8px; }
+.fa-au-del { background: rgba(239,68,68,.08); color: var(--expense); }
+
+.fa-au-actions { display: flex; gap: 6px; }
+.fa-au-outcome {
+  flex: 1; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px;
+  color: var(--text2); font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.fa-au-outcome.correct.active { background: rgba(16,185,129,.18); color: var(--income); border-color: rgba(16,185,129,.4); }
+.fa-au-outcome.wrong.active   { background: rgba(239,68,68,.18); color: var(--expense); border-color: rgba(239,68,68,.4); }
+.fa-au-outcome:active { transform: scale(.97); }
+
+/* Backup status pill in settings */
+.fa-backup-status {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--bg3);
+  border-radius: 8px;
+}
+
 /* ── Notification settings ──────────────────────────────────────────────── */
 .fa-notif-hint {
   font-size: 12px; color: var(--text2);

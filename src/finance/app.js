@@ -20,7 +20,7 @@ export class FinanceApp {
     constructor(rootEl) {
         this.root = rootEl;
         this.store = new TransactionStore();
-        this.ai = new FinanceAI();
+        this.ai = new FinanceAI(this.store);
         this.charts = new FinanceCharts();
         this.market = new MarketDataService();
         this.bank = new BankIntegration();
@@ -128,6 +128,7 @@ export class FinanceApp {
         const main = document.getElementById('faMain');
         if (!main) return;
         if (this.view === 'market') { this._renderMarketView(main); return; }
+        if (this.view === 'audit')  { this._renderAuditView(main); return; }
         switch (this.tab) {
             case 'dashboard':    this._renderDashboard(main); break;
             case 'transactions': this._renderTransactions(main); break;
@@ -454,6 +455,112 @@ export class FinanceApp {
         });
     }
 
+    // ─── Audit view (Histórico IA) ───────────────────────────────────────────
+
+    _renderAuditView(el) {
+        const audits = this.store.getAudits().slice().reverse();
+        const hr = this.store.getHitRate();
+
+        const hrSummary = hr
+            ? `<div class="fa-audit-summary">
+                 <div><span class="fa-au-big">${hr.rate.toFixed(0)}%</span> hit-rate</div>
+                 <div class="fa-au-sub">${hr.correct} certas / ${hr.judged} avaliadas · ${hr.total} totais</div>
+               </div>`
+            : `<div class="fa-audit-summary"><div class="fa-au-sub">Marca abaixo as previsões para começares a ver o hit-rate.</div></div>`;
+
+        el.innerHTML = `
+<div class="fa-section">
+  <div class="fa-view-hdr">
+    <button class="fa-icon-btn" id="closeAudit" aria-label="Voltar">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <h2 class="fa-view-title">Histórico IA</h2>
+    <button class="fa-icon-btn" id="clearAudit" aria-label="Limpar">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    </button>
+  </div>
+
+  ${hrSummary}
+
+  <div class="fa-audit-list">
+    ${audits.length === 0
+        ? '<div class="fa-empty">Sem decisões registadas ainda. Abre Mercado para a IA analisar notícias.</div>'
+        : audits.map((a) => this._auditCard(a)).join('')}
+  </div>
+</div>`;
+
+        document.getElementById('closeAudit').addEventListener('click', () => {
+            this.view = null;
+            this.tab = 'dashboard';
+            this.render();
+        });
+
+        document.getElementById('clearAudit').addEventListener('click', () => {
+            if (confirm('Apagar todo o Histórico IA? Esta acção não pode ser desfeita.')) {
+                localStorage.removeItem('fa_audit_log');
+                this._renderTab();
+            }
+        });
+
+        el.querySelectorAll('.fa-au-outcome').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                const id = e.currentTarget.dataset.id;
+                const outcome = e.currentTarget.dataset.outcome;
+                const current = this.store.getAudits().find((a) => a.id === id);
+                // Toggle off if already set to the same value
+                this.store.setAuditOutcome(id, current?.outcome === outcome ? null : outcome);
+                this._renderTab();
+            });
+        });
+
+        el.querySelectorAll('.fa-au-del').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                this.store.deleteAudit(e.currentTarget.dataset.id);
+                this._renderTab();
+            });
+        });
+    }
+
+    _auditCard(a) {
+        const date = new Date(a.timestamp);
+        const time = date.toLocaleString('pt', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        let title = '';
+        let body = '';
+        let icon = '🤖';
+
+        if (a.type === 'news-analysis') {
+            icon = a.output?.profitChance >= 50 ? '📈' : '📉';
+            title = `Notícia · ${a.output?.profitChance}% chance de ${a.output?.profitChance >= 50 ? 'subida' : 'queda'}`;
+            body = `<div class="fa-au-headline">${this._esc(a.inputs?.title || '')}</div>
+                    <div class="fa-au-reason">${this._esc(a.output?.reasoning || '')}</div>`;
+        } else if (a.type === 'forecast') {
+            icon = '📊';
+            title = `Análise de mercado (algo v${a.algoVersion})`;
+            const preview = (a.output || '').slice(0, 220).replace(/\*\*/g, '').replace(/\n/g, ' ');
+            body = `<div class="fa-au-reason">${this._esc(preview)}…</div>`;
+        }
+
+        const oc = a.outcome;
+        return `
+<div class="fa-au-card${oc ? ' ' + oc : ''}">
+  <div class="fa-au-hdr">
+    <span class="fa-au-icon">${icon}</span>
+    <div class="fa-au-meta">
+      <div class="fa-au-title">${this._esc(title)}</div>
+      <div class="fa-au-time">${time} · ${a.mode}</div>
+    </div>
+    <button class="fa-au-del fa-icon-btn sm" data-id="${a.id}" aria-label="Apagar">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  ${body}
+  <div class="fa-au-actions">
+    <button class="fa-au-outcome correct${oc === 'correct' ? ' active' : ''}" data-id="${a.id}" data-outcome="correct">✓ Acertou</button>
+    <button class="fa-au-outcome wrong${oc === 'wrong' ? ' active' : ''}" data-id="${a.id}" data-outcome="wrong">✗ Falhou</button>
+  </div>
+</div>`;
+    }
+
     // ─── Market view (full screen) ───────────────────────────────────────────
 
     _renderMarketView(el) {
@@ -604,7 +711,9 @@ export class FinanceApp {
             html += '</div>';
         }
 
-        html += '<div class="fa-disclaimer">⚠ Informação a título informativo. Não constitui aconselhamento financeiro.</div>';
+        const hr = this.store.getHitRate();
+        const hrText = hr ? `Hit-rate IA: <strong>${hr.rate.toFixed(0)}%</strong> (${hr.correct}/${hr.judged} avaliações)` : 'Hit-rate IA: sem avaliações ainda — abre o Histórico IA';
+        html += `<div class="fa-disclaimer">⚠ Dados Yahoo Finance (~15min delay). ${hrText}</div>`;
         return html;
     }
 
@@ -906,7 +1015,12 @@ ${transactions.length > 50 ? `<div class="fa-empty-sm">+${transactions.length - 
     </select>
   </div>
   <button id="saveSettings" class="fa-btn primary full">Guardar</button>
-  <button id="exportBtn" class="fa-btn secondary full">Exportar Dados (JSON)</button>
+  <button id="auditBtn" class="fa-btn secondary full">📊 Histórico IA${(() => { const hr = this.store.getHitRate(); return hr ? ` — ${hr.rate.toFixed(0)}% hit-rate` : ''; })()}</button>
+  <button id="exportEncBtn" class="fa-btn secondary full">🔒 Exportar Cifrado (recomendado)</button>
+  <button id="importEncBtn" class="fa-btn secondary full">📥 Importar Backup Cifrado</button>
+  <button id="exportBtn" class="fa-btn ghost full">Exportar JSON (não cifrado)</button>
+  <input type="file" id="importEncFile" accept=".fafenc,application/octet-stream" style="display:none">
+  ${(() => { const d = this.store.daysSinceLastBackup(); return Number.isFinite(d) ? `<div class="fa-backup-status">Último backup: há ${d} dia${d === 1 ? '' : 's'}</div>` : ''; })()}
 </div>
 <div class="fa-settings-ai">
   <div class="fa-ai-row">
@@ -941,6 +1055,49 @@ ${this._renderNotificationsSection()}
             a.download = `finance-ai-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('auditBtn').addEventListener('click', () => {
+            modal.remove();
+            this.view = 'audit';
+            this.render();
+        });
+
+        document.getElementById('exportEncBtn').addEventListener('click', async () => {
+            const pwd = prompt('Define uma password para cifrar o backup (mínimo 6 caracteres):');
+            if (!pwd) return;
+            try {
+                const bytes = await this.store.exportEncrypted(pwd);
+                const blob = new Blob([bytes], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `finance-ai-${new Date().toISOString().split('T')[0]}.fafenc`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.store.markBackupNow();
+                alert('Backup cifrado guardado.\nGuarda o ficheiro num local seguro (Drive, Dropbox, etc).');
+            } catch (e) {
+                alert(`Erro: ${e.message}`);
+            }
+        });
+
+        const importFileInput = document.getElementById('importEncFile');
+        document.getElementById('importEncBtn').addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const pwd = prompt('Password do backup:');
+            if (!pwd) return;
+            try {
+                const buffer = await file.arrayBuffer();
+                await this.store.importEncrypted(buffer, pwd);
+                alert('Backup restaurado com sucesso.');
+                modal.remove();
+                this.render();
+            } catch (err) {
+                alert(`Erro a importar: ${err.message}`);
+            }
         });
 
         document.getElementById('reconnectBtn').addEventListener('click', async () => {
@@ -991,6 +1148,10 @@ ${this._renderNotificationsSection()}
   <label class="fa-notif-row-opt">
     <span><strong>Lembrete diário</strong><br><small>Às ${s.reminderTime} se ainda não registaste despesas</small></span>
     <input type="checkbox" id="notifDaily" class="fa-switch"${s.dailyReminder ? ' checked' : ''}>
+  </label>
+  <label class="fa-notif-row-opt">
+    <span><strong>Backup pendente</strong><br><small>Alerta se passarem ${s.backupIntervalDays || 7} dias sem exportar backup cifrado</small></span>
+    <input type="checkbox" id="notifBackup" class="fa-switch"${s.backupAlerts ? ' checked' : ''}>
   </label>
   <div class="fa-notif-row-opt">
     <span><strong>Hora do lembrete</strong></span>
@@ -1044,6 +1205,7 @@ ${this._renderNotificationsSection()}
         onToggle('notifMarket', 'marketAlerts');
         onToggle('notifNews',   'newsAlerts');
         onToggle('notifDaily',  'dailyReminder');
+        onToggle('notifBackup', 'backupAlerts');
 
         const timeInput = modal.querySelector('#notifTime');
         if (timeInput) timeInput.addEventListener('change', () => {

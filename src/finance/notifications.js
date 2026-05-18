@@ -25,10 +25,13 @@ const DEFAULT_SETTINGS = {
     reminderTime: '20:00',
     newsAlerts: true,           // AI-analyzed news with profit chance
     profitChanceThreshold: 20,  // alert when |profitChance - 50| >= this
+    backupAlerts: true,         // weekly backup pending reminder
+    backupIntervalDays: 7,
     lastBudgetCheck: null,
     lastMarketCheck: null,
     lastNewsCheck: null,
     lastReminder: null,
+    lastBackupNudge: null,
     seenNewsTitles: [],         // dedup recently-analyzed headlines
 };
 
@@ -145,6 +148,27 @@ export class NotificationManager {
         if (this.settings.dailyReminder) await this._checkDailyReminder();
         if (this.settings.marketAlerts) await this._checkMarket();
         if (this.settings.newsAlerts && this.ai) await this._checkNewsAnalysis();
+        if (this.settings.backupAlerts) await this._checkBackup();
+    }
+
+    async _checkBackup() {
+        if (!this.store?.daysSinceLastBackup) return;
+        const days = this.store.daysSinceLastBackup();
+        const interval = this.settings.backupIntervalDays ?? 7;
+        if (!Number.isFinite(days) || days < interval) return;
+
+        const last = this.settings.lastBackupNudge ? new Date(this.settings.lastBackupNudge).getTime() : 0;
+        if (Date.now() - last < 3 * 86_400_000) return; // max once every 3 days
+
+        await this.show(
+            '🔒 Backup pendente',
+            days === Infinity
+                ? 'Nunca exportaste um backup cifrado. Abre as Definições para criar um.'
+                : `Há ${days} dias sem backup. Exporta um backup cifrado nas Definições.`,
+            { tag: 'backup-pending', data: { tab: 'dashboard' } }
+        );
+        this.settings.lastBackupNudge = new Date().toISOString();
+        this._save();
     }
 
     startMonitoring() {

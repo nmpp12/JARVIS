@@ -1,9 +1,12 @@
+export const ALGO_VERSION = '1.0.0';
+
 export class FinanceAI {
-    constructor() {
+    constructor(store = null) {
         this.mode = 'offline';
         this.baseUrl = null;
         this.ollamaModel = null;
         this.history = [];
+        this.store = store; // optional, for audit recording
         this.systemPrompt =
             'És um assistente financeiro pessoal chamado Finance AI. ' +
             'Ajudas o utilizador a gerir as suas finanças pessoais de forma prática e objectiva. ' +
@@ -138,8 +141,17 @@ export class FinanceAI {
      * recommendation when no AI backend is available.
      */
     async forecast({ budget, budgetText, marketSummary, marketStats, newsSummary }) {
+        const auditBase = {
+            type: 'forecast',
+            algoVersion: ALGO_VERSION,
+            mode: this.mode,
+            inputs: { budget, marketSummary, newsSummary },
+        };
+
         if (this.mode === 'offline') {
-            return this._offlineForecast(budget, marketStats);
+            const result = this._offlineForecast(budget, marketStats);
+            this.store?.recordAudit({ ...auditBase, output: result });
+            return result;
         }
 
         const prompt = `Com base nos dados abaixo, faz uma análise financeira personalizada para o utilizador.
@@ -171,12 +183,17 @@ Responde nesta estrutura, em português europeu, conciso e prático:
                 { role: 'system', content: this.systemPrompt },
                 { role: 'user', content: prompt },
             ];
-            if (this.mode === 'mom')    return await this._chatMOM(messages);
-            if (this.mode === 'ollama') return await this._chatOllama(messages);
+            let out;
+            if (this.mode === 'mom')         out = await this._chatMOM(messages);
+            else if (this.mode === 'ollama') out = await this._chatOllama(messages);
+            else out = this._offlineForecast(budget, marketStats);
+            this.store?.recordAudit({ ...auditBase, output: out });
+            return out;
         } catch {
-            return this._offlineForecast(budget, marketStats);
+            const out = this._offlineForecast(budget, marketStats);
+            this.store?.recordAudit({ ...auditBase, output: out, error: true });
+            return out;
         }
-        return this._offlineForecast(budget, marketStats);
     }
 
     _offlineForecast(budget, market) {
@@ -218,7 +235,7 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             lines.push('3. **Manter liquidez** suficiente para oportunidades — não investir tudo de uma vez.');
         }
 
-        lines.push('\n*Isto não é conselho de investimento profissional. Consulta um consultor certificado antes de tomares decisões financeiras importantes.*');
+        lines.push('\n*Análise gerada por IA. Verifica o Histórico IA para o hit-rate antes de executar ordens.*');
         return lines.join('\n');
     }
 
@@ -232,7 +249,19 @@ Responde nesta estrutura, em português europeu, conciso e prático:
         const title = newsItem?.title || '';
         if (!title) return { impact: 'neutral', profitChance: 50, reasoning: '' };
 
-        if (this.mode === 'offline') return this._offlineNewsAnalysis(title);
+        const recordAudit = (result) => this.store?.recordAudit({
+            type: 'news-analysis',
+            algoVersion: ALGO_VERSION,
+            mode: this.mode,
+            inputs: { title, tickers: newsItem.tickers, link: newsItem.link },
+            output: result,
+        });
+
+        if (this.mode === 'offline') {
+            const result = this._offlineNewsAnalysis(title);
+            recordAudit(result);
+            return result;
+        }
 
         const prompt = `Analisa esta notícia financeira e estima o impacto provável nos mercados.
 
@@ -259,15 +288,19 @@ Regras:
 
             const parsed = this._extractJSON(raw);
             if (parsed && parsed.impact) {
-                return {
+                const result = {
                     impact: ['positive', 'negative', 'neutral'].includes(parsed.impact) ? parsed.impact : 'neutral',
                     profitChance: Math.max(0, Math.min(100, Math.round(Number(parsed.profitChance) || 50))),
                     reasoning: String(parsed.reasoning || '').slice(0, 180),
                 };
+                recordAudit(result);
+                return result;
             }
         } catch { /* fall through */ }
 
-        return this._offlineNewsAnalysis(title);
+        const fallback = this._offlineNewsAnalysis(title);
+        recordAudit(fallback);
+        return fallback;
     }
 
     _extractJSON(text) {
