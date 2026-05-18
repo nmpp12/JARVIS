@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/sh
 
 #
 # Copyright 2015 the original author or authors.
@@ -23,50 +23,34 @@
 ##############################################################################
 
 # Attempt to set APP_HOME
-# Resolve links: $0 may be a symlink
+# Resolve links: $0 may be a link
 PRG="$0"
 # Need this for relative symlinks.
 while [ -h "$PRG" ] ; do
     ls -ld "$PRG"
-    link=`expr "$PRG" : '.*->\(.*\)$'`
+    link=`expr "$PRG" : '.*-> \(.*\)$'`
     if expr "$link" : '/.*' > /dev/null; then
         PRG="$link"
     else
-        PRG=`dirname "$PRG"`"/$link"
+        PRG=`dirname "$PRG"`"/"$link"
     fi
 done
-SAVED="$(cd "$(dirname \"$PRG\")" >/dev/null 2>&1 && pwd)"
-cd "$SAVED" >/dev/null 2>&1 || exit
+SAVED="`pwd`"
+cd "`dirname \"$PRG\"`/" >/dev/null
+APP_HOME="`pwd -P`"
+cd "$SAVED" >/dev/null
 
-APP_HOME="$(dirname \"$SAVED\")"
-export APP_HOME
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
 
-WHICH_JAVA="which java"
-JAVA_EXE="$($WHICH_JAVA)"
-if [ -z "$JAVA_EXE" ] ; then
-    echo "Error: JAVA_HOME is not set and no 'java' command could be found in your PATH."
-    echo ""
-    echo "Please set the JAVA_HOME variable in your environment to match the"
-    echo "location of your Java installation."
-    exit 1
-fi
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 
-if [ ! -x "$JAVA_EXE" ] ; then
-    echo "Error: JAVA_HOME is not defined correctly for me to execute java"
-    echo "I cannot execute $JAVA_EXE"
-    exit 1
-fi
-
-if [ -z "$JAVA_HOME" ] ; then
-    echo "Warning: JAVA_HOME environment variable is not set."
-fi
-
-DIR="$( cd "$( dirname \"$0\" )" && pwd )"
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD="maximum"
 
 warn () {
-    echo "$*" >&2
+    echo "$*"
 }
 
 die () {
@@ -77,18 +61,22 @@ die () {
 }
 
 # OS specific support (must be 'true' or 'false').
-darwin=false
-msys=false
 cygwin=false
-case "$(uname)" in
+msys=false
+pw=false
+darwin=false
+case "`uname`" in
+  CYGWIN* )
+    cygwin=true
+    ;;
   Darwin* )
     darwin=true
     ;;
-  MINGW* )
+  MSYS* | MINGW* )
     msys=true
     ;;
-  CYGWIN* )
-    cygwin=true
+  NONSTOP* )
+    nonstop=true
     ;;
 esac
 
@@ -115,14 +103,10 @@ location of your Java installation."
 fi
 
 # Increase the maximum file descriptors if we can.
-if [ "$darwin" = "true" ] && [ -z "$MAX_FD" ] ; then
-    MAX_FD="200"
-fi
-
-if [ "$MAX_FD" != "" ] && [ "$cygwin" = "false" ] && [ "$msys" = "false" ] ; then
-    MAX_FD_LIMIT=$(ulimit -H -n)
+if [ "$cygwin" = "false" -a "$darwin" = "false" -a "$nonstop" = "false" ] ; then
+    MAX_FD_LIMIT=`ulimit -H -n`
     if [ $? -eq 0 ] ; then
-        if [ "$MAX_FD" = "maximum" ] || [ "$MAX_FD" = "max" ] ; then
+        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
             MAX_FD="$MAX_FD_LIMIT"
         fi
         ulimit -n $MAX_FD
@@ -136,55 +120,56 @@ fi
 
 # For Darwin, add options to specify how the application appears in the dock
 if $darwin; then
-    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
+    DEFAULT_JVM_OPTS="$DEFAULT_JVM_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
 fi
 
 # For Cygwin or MSYS, switch paths to Windows format before running java
-if [ "$cygwin" = "true" ] || [ "$msys" = "true" ] ; then
-    APP_HOME=$(cygpath --path --mixed "$APP_HOME")
-    CLASSPATH=$(cygpath --path --mixed "$CLASSPATH")
-    JAVACMD=$(cygpath --unix "$JAVACMD")
+if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
+    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
+    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
+
+    JAVACMD=`cygpath --unix "$JAVACMD"`
+
     # We build the pattern for arguments to be converted via cygpath
-    ROOTDIRSRAW=$(find -L / -maxdepth 3 -type d -name sources 2>/dev/null)
+    ROOTDIRSRAW=`find -L / -maxdepth 3 -type d -name sources 2>/dev/null`
     SEP=""
     for dir in $ROOTDIRSRAW ; do
-        ROOTDIRS="${ROOTDIRS}${SEP}$(cygpath --path --ignore --mixed \"$dir\")"
-        SEP=":"
+        ROOTDIRS="$ROOTDIRS$SEP$dir"
+        SEP="|"
     done
-    # By default we should be in the correct project dir, but may not be.
-    # If we are not, find the .gradlew directory.
-    # If we are in the same directory as the script, $BASEDIR can stay as is.
-    # If we are NOT in the same directory as the script, then we need to find the .gradlew.
-    if [ ! -z "$DIRCHANGE" ] ; then
-        cd "$DIRCHANGE"
+    OURCYGPATTERN="(^($ROOTDIRS))"
+    # Add a user-defined pattern to the cygpath arguments
+    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
+        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
     fi
-    # If there is a java.env, source.
-    if [ -f "${BASEDIR}/java.env" ] ; then
-        . "${BASEDIR}/java.env"
-    fi
+    # Now convert the arguments - kludge to limit ourselves to /bin/sh
+    i=0
+    for arg in "$@" ; do
+        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
+        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
+
+        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
+            arg=`cygpath --path --ignore --mixed "$arg"`
+        fi
+        IFS="$oldIFS"
+        elementnum=$((elementnum+1))
+        GRADLE_OPTS="$GRADLE_OPTS$(echo $arg | sed -e 's/[[:space:]]/\\ /g')"
+    done
+    IFS="$oldIFS"
 fi
 
-# splitlines with \n internally, so we can do sed 's|$|/|g' to append the run marker
-CLASSPATH_BEFORE_JAR="${APP_HOME}/gradle/wrapper/gradle-wrapper.jar"
-CLASSPATH="${CLASSPATH_BEFORE_JAR}"
-
-# Determine the base path for relative symlinks.
-BASEDIR=$(dirname "$(echo \"$0\" | sed -e 's|^./||' -e 's|/$||' -e 's|/bin/.*||')")
-
-DIR="$BASEDIR"/gradle/wrapper
-if [ ! -f "$DIR/gradle-wrapper.jar" ] ; then
-    echo "Error: gradle-wrapper.jar not found in $DIR"
-    exit 1
-fi
-
-GRADLE_WRAPPER_PROPERTIES="$DIR/gradle-wrapper.properties"
-if [ ! -f "$GRADLE_WRAPPER_PROPERTIES" ] ; then
-    echo "Error: gradle-wrapper.properties not found in $DIR"
-    exit 1
-fi
+# Collect all arguments for the java command, stacking in reverse order:
+#   * args from the command line
+#   * the main class name
+#   * -classpath
+#   * -D...appname settings
+#   * --module-path (only if needed)
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
 
 exec "$JAVACMD" \
-  $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS \
-  -classpath "$CLASSPATH" \
+  $DEFAULT_JVM_OPTS \
+  $JAVA_OPTS \
+  $GRADLE_OPTS \
+  -classpath "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
   org.gradle.wrapper.GradleWrapperMain \
   "$@"
