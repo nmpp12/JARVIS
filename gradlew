@@ -63,8 +63,8 @@ die () {
 # OS specific support (must be 'true' or 'false').
 cygwin=false
 msys=false
-pw=false
 darwin=false
+nonstop=false
 case "`uname`" in
   CYGWIN* )
     cygwin=true
@@ -143,7 +143,8 @@ if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
         OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
     fi
     # Now convert the arguments - kludge to limit ourselves to /bin/sh
-    i=0
+    oldIFS="$IFS"
+    IFS=$'\n'
     for arg in "$@" ; do
         CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN"`
         CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
@@ -151,8 +152,6 @@ if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
         if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
             arg=`cygpath --path --ignore --mixed "$arg"`
         fi
-        IFS="$oldIFS"
-        elementnum=$((elementnum+1))
         GRADLE_OPTS="$GRADLE_OPTS$(echo $arg | sed -e 's/[[:space:]]/\\ /g')"
     done
     IFS="$oldIFS"
