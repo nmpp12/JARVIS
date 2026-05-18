@@ -4,6 +4,19 @@ import { FinanceCharts } from './charts.js';
 import { MarketDataService, DEFAULT_SYMBOLS } from './market.js';
 import { BankIntegration } from './bank.js';
 import { NotificationManager } from './notifications.js';
+import { getAgentRegistry } from '../shared/agentRegistry.js';
+
+const FINANCE_MANIFEST = {
+    id: 'finance',
+    name: 'Finance AI',
+    type: 'agent',
+    version: '1.0.0',
+    domain: 'financial',
+    description: 'Autonomous personal-finance agent — budgeting, market analysis, news interpretation.',
+    capabilities: ['budgeting', 'market_analysis', 'forecasting', 'news_analysis'],
+    outputs: ['forecast', 'news-analysis', 'audit'],
+    signals: ['new_discovery', 'threat_detected', 'milestone_reached'],
+};
 
 const MONTH_NAMES = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -37,45 +50,30 @@ export class FinanceApp {
     }
 
     async init() {
+        // Publish Finance's manifest so any future aggregator (MOM) can discover us.
+        this.agentRegistry = getAgentRegistry();
+        this.agentRegistry.register(FINANCE_MANIFEST);
+
         if (this.momStack) {
-            const { mom, memory, emotions, bus, dreams } = this.momStack;
-
-            mom.registerChild('Finance', 'financial',
-                'Finance AI — personal finance manager, market analyst, MOM\'s 3rd child');
-            bus.register('Finance', ['budgeting', 'market_analysis', 'forecasting', 'news_analysis']);
-
-            bus.setMomListener((message) => {
-                memory.writeJournal(
-                    `[Finance Bus] ${message.from} → ${message.to ?? 'broadcast'}: ${
-                        typeof message.content === 'string' ? message.content : message.content?.type || 'message'
-                    }`,
-                    'observation'
-                );
-            });
-
-            mom.onAlert((alert) => {
-                memory.observeChild('Finance', alert.reason, 'concerning');
-                emotions.feel('threat_detected', 0.5);
-            });
+            const { memory, emotions } = this.momStack;
 
             const stats = memory.getStats();
             memory.writeJournal(
-                `Finance AI online. Awakening #${stats.awakenings}. Registered as MOM's 3rd child.`,
-                'reflection'
+                `Finance agent online. Awakening #${stats.awakenings}. Manifest published to registry.`,
+                'observation'
             );
 
             const milestones = memory.getMilestones();
-            if (!milestones.some((m) => m.title === 'Finance Child Registered')) {
+            if (!milestones.some((m) => m.title === 'Finance Agent Bootstrapped')) {
                 memory.recordMilestone(
-                    'Finance Child Registered',
-                    'Finance AI joined the MOM ecosystem for the first time.',
-                    ['MOM', 'Finance']
+                    'Finance Agent Bootstrapped',
+                    'Finance AI published its manifest for the first time.',
+                    ['Finance']
                 );
-                emotions.feel('new_discovery', 0.8);
+                emotions.feel('new_discovery', 0.6);
             }
 
-            dreams.start();
-            console.log(`[MOM] Awakening #${stats.awakenings} — Finance child registered`);
+            console.log(`[Finance] Awakening #${stats.awakenings} — manifest registered`);
         }
 
         this.render();
@@ -1368,7 +1366,7 @@ ${this._renderNotificationsSection()}
                 memory.recordMilestone(
                     label,
                     `Saldo total atingiu €${threshold}. Marco financeiro alcançado.`,
-                    ['Finance', 'Utilizador']
+                    ['finance']
                 );
                 emotions.feel('milestone_reached', 0.9);
                 memory.learnLesson(

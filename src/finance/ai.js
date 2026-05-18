@@ -142,19 +142,6 @@ export class FinanceAI {
      * recommendation when no AI backend is available.
      */
     async forecast({ budget, budgetText, marketSummary, marketStats, newsSummary }) {
-        // MOM evaluates this action before we proceed
-        if (this.momStack) {
-            const check = this.momStack.mom.evaluateAction('Finance', {
-                type: 'financial_forecast',
-                description: 'Personalised market analysis forecast',
-                content: budgetText?.slice(0, 200) || '',
-            });
-            if (!check.allowed) {
-                this.momStack.memory.observeChild('Finance', `Blocked forecast: ${check.reason}`, 'concerning');
-                return null;
-            }
-        }
-
         const auditBase = {
             type: 'forecast',
             algoVersion: ALGO_VERSION,
@@ -165,12 +152,7 @@ export class FinanceAI {
         if (this.mode === 'offline') {
             const result = this._offlineForecast(budget, marketStats);
             this.store?.recordAudit({ ...auditBase, output: result });
-            if (this.momStack) {
-                this.momStack.memory.writeJournal(
-                    `Finance forecast (offline): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`,
-                    'observation'
-                );
-            }
+            this._reportToMOM('forecast', `Forecast (offline): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`);
             return result;
         }
 
@@ -216,13 +198,7 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             else if (this.mode === 'ollama') out = await this._chatOllama(messages);
             else out = this._offlineForecast(budget, marketStats);
             this.store?.recordAudit({ ...auditBase, output: out });
-            if (this.momStack) {
-                this.momStack.memory.writeJournal(
-                    `Finance forecast generated (${this.mode}): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`,
-                    'observation'
-                );
-                this.momStack.memory.observeChild('Finance', 'Forecast generated successfully', 'positive');
-            }
+            this._reportToMOM('forecast', `Forecast generated (${this.mode}): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`);
             return out;
         } catch {
             const out = this._offlineForecast(budget, marketStats);
@@ -284,19 +260,6 @@ Responde nesta estrutura, em português europeu, conciso e prático:
         const title = newsItem?.title || '';
         if (!title) return { impact: 'neutral', profitChance: 50, reasoning: '' };
 
-        // MOM evaluates before we proceed
-        if (this.momStack) {
-            const check = this.momStack.mom.evaluateAction('Finance', {
-                type: 'news_analysis',
-                description: `Analyse financial news: ${title.slice(0, 100)}`,
-                content: title,
-            });
-            if (!check.allowed) {
-                this.momStack.memory.observeChild('Finance', `Blocked news analysis: ${check.reason}`, 'concerning');
-                return { impact: 'neutral', profitChance: 50, reasoning: '' };
-            }
-        }
-
         const recordAudit = (result) => this.store?.recordAudit({
             type: 'news-analysis',
             algoVersion: ALGO_VERSION,
@@ -305,24 +268,24 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             output: result,
         });
 
-        const applyEmotions = (result) => {
+        // One-way aggregation: emit signals into MOM's shared memory & emotional state.
+        // Finance stays autonomous — MOM never gates this call.
+        const emitSignals = (result) => {
             if (!this.momStack) return;
-            const { emotions, memory, bus } = this.momStack;
+            const { emotions, memory } = this.momStack;
             if (result.profitChance >= 75) {
                 emotions.feel('new_discovery', 0.7);
-                memory.observeChild('Finance',
-                    `Positive signal: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
-                    'positive'
+                memory.writeJournal(
+                    `[finance] Positive signal: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
+                    'observation',
+                    { agent: 'finance', signal: 'new_discovery' }
                 );
-                bus.shareDiscovery('Finance', {
-                    insight: `Market opportunity: ${title.slice(0, 80)}`,
-                    confidence: result.profitChance / 100,
-                });
             } else if (result.profitChance <= 25) {
                 emotions.feel('threat_detected', 0.5);
-                memory.observeChild('Finance',
-                    `Market threat: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
-                    'concerning'
+                memory.writeJournal(
+                    `[finance] Market threat: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
+                    'concern',
+                    { agent: 'finance', signal: 'threat_detected' }
                 );
             }
         };
@@ -330,7 +293,7 @@ Responde nesta estrutura, em português europeu, conciso e prático:
         if (this.mode === 'offline') {
             const result = this._offlineNewsAnalysis(title);
             recordAudit(result);
-            applyEmotions(result);
+            emitSignals(result);
             return result;
         }
 
@@ -365,15 +328,25 @@ Regras:
                     reasoning: String(parsed.reasoning || '').slice(0, 180),
                 };
                 recordAudit(result);
-                applyEmotions(result);
+                emitSignals(result);
                 return result;
             }
         } catch { /* fall through */ }
 
         const fallback = this._offlineNewsAnalysis(title);
         recordAudit(fallback);
-        applyEmotions(fallback);
+        emitSignals(fallback);
         return fallback;
+    }
+
+    /** One-way report into MOM's persistent memory. No governance, no approval. */
+    _reportToMOM(kind, message) {
+        if (!this.momStack) return;
+        this.momStack.memory.writeJournal(
+            `[finance] ${message}`,
+            'observation',
+            { agent: 'finance', kind }
+        );
     }
 
     _extractJSON(text) {

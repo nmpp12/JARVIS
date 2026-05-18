@@ -36,13 +36,10 @@ class JARVISApp {
             'AI assistant and OS developer — MOM\'s firstborn');
         this.mom.registerChild('Vision', 'vision',
             'Computer vision and perception system — MOM\'s second child');
-        this.mom.registerChild('Finance', 'financial',
-            'Finance AI — personal finance manager, market analyst, MOM\'s 3rd child');
 
         // Register siblings on the bus
-        this.siblingBus.register('JARVIS',   ['reasoning', 'coding', 'conversation']);
-        this.siblingBus.register('Vision',   ['perception', 'analysis', 'recognition']);
-        this.siblingBus.register('Finance',  ['budgeting', 'market_analysis', 'forecasting', 'news_analysis']);
+        this.siblingBus.register('JARVIS', ['reasoning', 'coding', 'conversation']);
+        this.siblingBus.register('Vision', ['perception', 'analysis', 'recognition']);
 
         // MOM eavesdrops on sibling conversations — she's the parent
         this.siblingBus.setMomListener((message) => {
