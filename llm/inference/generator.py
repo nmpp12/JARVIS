@@ -58,7 +58,7 @@ class TextGenerator:
         contrastive_alpha: float = 0.6,
         contrastive_k: int = 5,
         adaptive_temp_range: tuple = (0.3, 1.5),
-    ) -> str:
+    ):
         """Generate text from a prompt.
 
         Args:
@@ -69,14 +69,47 @@ class TextGenerator:
             top_p: Nucleus sampling threshold
             repetition_penalty: Penalty for repeated tokens (1.0 = no penalty)
             stop_tokens: Token IDs that stop generation
-            stream: If True, yield tokens one by one
+            stream: If True, yield tokens one by one; if False, return complete string
             sampling_strategy: One of "standard", "typical", "contrastive",
                                "adaptive", or "creative"
             typical_p: Mass threshold for typical sampling (0.9-0.99)
             contrastive_alpha: Balance between confidence and diversity (0-1)
             contrastive_k: Number of candidates for contrastive search
             adaptive_temp_range: (min_temp, max_temp) for adaptive temperature
+        
+        Returns:
+            If stream=False: str (complete generated text)
+            If stream=True: generator that yields strings token-by-token
         """
+        if stream:
+            return self._generate_stream(
+                prompt, max_new_tokens, temperature, top_k, top_p,
+                repetition_penalty, stop_tokens, sampling_strategy,
+                typical_p, contrastive_alpha, contrastive_k, adaptive_temp_range
+            )
+        else:
+            return self._generate_non_stream(
+                prompt, max_new_tokens, temperature, top_k, top_p,
+                repetition_penalty, stop_tokens, sampling_strategy,
+                typical_p, contrastive_alpha, contrastive_k, adaptive_temp_range
+            )
+
+    def _generate_non_stream(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        temperature: float,
+        top_k: int,
+        top_p: float,
+        repetition_penalty: float,
+        stop_tokens: Optional[List[int]],
+        sampling_strategy: str,
+        typical_p: float,
+        contrastive_alpha: float,
+        contrastive_k: int,
+        adaptive_temp_range: tuple,
+    ) -> str:
+        """Non-streaming generation that returns a complete string."""
         # Creativity Engine: enhance the prompt before generation when in creative mode
         if sampling_strategy == "creative" and self.creativity_engine is not None:
             prompt = self.creativity_engine.enhance_prompt(prompt)
@@ -137,8 +170,106 @@ class TextGenerator:
             if next_token in stop_tokens:
                 break
 
-            if stream:
-                yield self.tokenizer.decode([next_token], skip_special=True)
+            # Forward with KV-cache (single token)
+            next_input = torch.tensor([[next_token]], dtype=torch.long, device=self.device)
+            outputs = self.model(
+                input_ids=next_input, kv_caches=kv_caches, use_cache=True
+            )
+            kv_caches = outputs["kv_caches"]
+            next_logits = outputs["logits"][:, -1, :]
+
+            # Track hidden state for contrastive search
+            if sampling_strategy in ("contrastive", "creative"):
+                prev_hidden = outputs.get("hidden_state", next_logits)
+
+        # Decode full response (skip prompt tokens)
+        response_ids = generated_ids[len(input_ids[0]):]
+        response = self.tokenizer.decode(response_ids, skip_special=True)
+        
+        # Record for novelty tracking when creativity engine is active
+        if self.creativity_engine is not None and sampling_strategy == "creative":
+            self.creativity_engine.record(response)
+        
+        return response
+
+    def _generate_stream(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        temperature: float,
+        top_k: int,
+        top_p: float,
+        repetition_penalty: float,
+        stop_tokens: Optional[List[int]],
+        sampling_strategy: str,
+        typical_p: float,
+        contrastive_alpha: float,
+        contrastive_k: int,
+        adaptive_temp_range: tuple,
+    ):
+        """Streaming generation that yields tokens one by one."""
+        # Creativity Engine: enhance the prompt before generation when in creative mode
+        if sampling_strategy == "creative" and self.creativity_engine is not None:
+            prompt = self.creativity_engine.enhance_prompt(prompt)
+            # Pull sampling params from the engine's config
+            engine_params = self.creativity_engine.get_sampling_params()
+            temperature = engine_params.get("temperature", temperature)
+            typical_p = engine_params.get("typical_p", typical_p)
+            contrastive_alpha = engine_params.get("contrastive_alpha", contrastive_alpha)
+            repetition_penalty = engine_params.get("repetition_penalty", repetition_penalty)
+
+        # Tokenize prompt
+        input_ids = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
+        input_ids = torch.tensor([input_ids], dtype=torch.long, device=self.device)
+
+        if stop_tokens is None:
+            stop_tokens = [self.tokenizer.eos_token_id]
+
+        generated_ids = input_ids[0].tolist()
+        kv_caches = None
+        prev_hidden = None
+
+        # Process prompt through model (prefill)
+        outputs = self.model(input_ids=input_ids, use_cache=True)
+        kv_caches = outputs["kv_caches"]
+        next_logits = outputs["logits"][:, -1, :]
+
+        for _ in range(max_new_tokens):
+            # Apply repetition penalty
+            if repetition_penalty != 1.0:
+                for token_id in set(generated_ids):
+                    if next_logits[0, token_id] > 0:
+                        next_logits[0, token_id] /= repetition_penalty
+                    else:
+                        next_logits[0, token_id] *= repetition_penalty
+
+            # Sample next token using the selected strategy
+            if sampling_strategy == "typical":
+                next_token = self._sample_typical(next_logits[0], temperature, typical_p)
+            elif sampling_strategy == "contrastive":
+                next_token = self._sample_contrastive(
+                    next_logits[0], prev_hidden, contrastive_alpha, contrastive_k
+                )
+            elif sampling_strategy == "adaptive":
+                next_token = self._sample_adaptive(
+                    next_logits[0], top_k, top_p, adaptive_temp_range
+                )
+            elif sampling_strategy == "creative":
+                next_token = self._sample_creative(
+                    next_logits[0], generated_ids, temperature, top_k, typical_p,
+                    contrastive_alpha, prev_hidden
+                )
+            else:
+                next_token = self._sample(next_logits[0], temperature, top_k, top_p)
+
+            generated_ids.append(next_token)
+
+            # Check stop condition
+            if next_token in stop_tokens:
+                break
+
+            # Yield the decoded token
+            yield self.tokenizer.decode([next_token], skip_special=True)
 
             # Forward with KV-cache (single token)
             next_input = torch.tensor([[next_token]], dtype=torch.long, device=self.device)
@@ -152,14 +283,11 @@ class TextGenerator:
             if sampling_strategy in ("contrastive", "creative"):
                 prev_hidden = outputs.get("hidden_state", next_logits)
 
-        if not stream:
-            # Decode full response (skip prompt tokens)
+        # Record for novelty tracking when creativity engine is active
+        if self.creativity_engine is not None and sampling_strategy == "creative":
             response_ids = generated_ids[len(input_ids[0]):]
             response = self.tokenizer.decode(response_ids, skip_special=True)
-            # Record for novelty tracking when creativity engine is active
-            if self.creativity_engine is not None and sampling_strategy == "creative":
-                self.creativity_engine.record(response)
-            return response
+            self.creativity_engine.record(response)
 
     def _sample(
         self,

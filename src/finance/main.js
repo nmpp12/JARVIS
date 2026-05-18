@@ -1,10 +1,8 @@
 import { FinanceApp } from './app.js';
-import { createMomStack } from '../shared/momStack.js';
 import '../styles/finance.css';
 
-const momStack = createMomStack();
 const root = document.getElementById('finance-app');
-const app = new FinanceApp(root, momStack);
+const app = new FinanceApp(root);
 app.init();
 
 // Register service worker for PWA installation support

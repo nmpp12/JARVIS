@@ -1,13 +1,12 @@
 export const ALGO_VERSION = '1.0.0';
 
 export class FinanceAI {
-    constructor(store = null, momStack = null) {
+    constructor(store = null) {
         this.mode = 'offline';
         this.baseUrl = null;
         this.ollamaModel = null;
         this.history = [];
-        this.store    = store;    // optional, for audit recording
-        this.momStack = momStack; // optional, MOM integration
+        this.store = store; // optional, for audit recording
         this.systemPrompt =
             'És um assistente financeiro pessoal chamado Finance AI. ' +
             'Ajudas o utilizador a gerir as suas finanças pessoais de forma prática e objectiva. ' +
@@ -152,16 +151,7 @@ export class FinanceAI {
         if (this.mode === 'offline') {
             const result = this._offlineForecast(budget, marketStats);
             this.store?.recordAudit({ ...auditBase, output: result });
-            this._reportToMOM('forecast', `Forecast (offline): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`);
             return result;
-        }
-
-        // Include MOM's current emotional tone in the system prompt
-        let sysContent = this.systemPrompt;
-        if (this.momStack) {
-            const mood = this.momStack.emotions.getMood();
-            const tone = this.momStack.emotions.getTone();
-            sysContent += `\n\nContexto MOM: estado emocional "${mood}" (${tone}). Adapta o tom da resposta — mais cauteloso se vigilante, mais encorajador se nurturing.`;
         }
 
         const prompt = `Com base nos dados abaixo, faz uma análise financeira personalizada para o utilizador.
@@ -190,7 +180,7 @@ Responde nesta estrutura, em português europeu, conciso e prático:
 
         try {
             const messages = [
-                { role: 'system', content: sysContent },
+                { role: 'system', content: this.systemPrompt },
                 { role: 'user', content: prompt },
             ];
             let out;
@@ -198,7 +188,6 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             else if (this.mode === 'ollama') out = await this._chatOllama(messages);
             else out = this._offlineForecast(budget, marketStats);
             this.store?.recordAudit({ ...auditBase, output: out });
-            this._reportToMOM('forecast', `Forecast generated (${this.mode}): balance ${budget?.monthlyBalance?.toFixed(2) ?? '?'}€`);
             return out;
         } catch {
             const out = this._offlineForecast(budget, marketStats);
@@ -268,32 +257,9 @@ Responde nesta estrutura, em português europeu, conciso e prático:
             output: result,
         });
 
-        // One-way aggregation: emit signals into MOM's shared memory & emotional state.
-        // Finance stays autonomous — MOM never gates this call.
-        const emitSignals = (result) => {
-            if (!this.momStack) return;
-            const { emotions, memory } = this.momStack;
-            if (result.profitChance >= 75) {
-                emotions.feel('new_discovery', 0.7);
-                memory.writeJournal(
-                    `[finance] Positive signal: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
-                    'observation',
-                    { agent: 'finance', signal: 'new_discovery' }
-                );
-            } else if (result.profitChance <= 25) {
-                emotions.feel('threat_detected', 0.5);
-                memory.writeJournal(
-                    `[finance] Market threat: ${title.slice(0, 60)} (${result.profitChance}% profit chance)`,
-                    'concern',
-                    { agent: 'finance', signal: 'threat_detected' }
-                );
-            }
-        };
-
         if (this.mode === 'offline') {
             const result = this._offlineNewsAnalysis(title);
             recordAudit(result);
-            emitSignals(result);
             return result;
         }
 
@@ -328,25 +294,13 @@ Regras:
                     reasoning: String(parsed.reasoning || '').slice(0, 180),
                 };
                 recordAudit(result);
-                emitSignals(result);
                 return result;
             }
         } catch { /* fall through */ }
 
         const fallback = this._offlineNewsAnalysis(title);
         recordAudit(fallback);
-        emitSignals(fallback);
         return fallback;
-    }
-
-    /** One-way report into MOM's persistent memory. No governance, no approval. */
-    _reportToMOM(kind, message) {
-        if (!this.momStack) return;
-        this.momStack.memory.writeJournal(
-            `[finance] ${message}`,
-            'observation',
-            { agent: 'finance', kind }
-        );
     }
 
     _extractJSON(text) {
