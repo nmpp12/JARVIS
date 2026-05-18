@@ -222,6 +222,107 @@ Responde nesta estrutura, em português europeu, conciso e prático:
         return lines.join('\n');
     }
 
+    /**
+     * Analyze a single news headline and estimate the probability that it
+     * leads to a positive market move (profit) versus a negative one.
+     * Returns: { impact: 'positive'|'negative'|'neutral', profitChance: 0-100,
+     *            reasoning: string }
+     */
+    async analyzeNews(newsItem) {
+        const title = newsItem?.title || '';
+        if (!title) return { impact: 'neutral', profitChance: 50, reasoning: '' };
+
+        if (this.mode === 'offline') return this._offlineNewsAnalysis(title);
+
+        const prompt = `Analisa esta notícia financeira e estima o impacto provável nos mercados.
+
+NOTÍCIA: "${title}"
+${newsItem.tickers?.length ? `ACTIVOS RELACIONADOS: ${newsItem.tickers.join(', ')}` : ''}
+
+Responde APENAS com JSON válido (uma só linha, sem markdown, sem texto antes ou depois):
+{"impact":"positive","profitChance":72,"reasoning":"frase curta em português"}
+
+Regras:
+- impact: "positive" | "negative" | "neutral"
+- profitChance: número 0-100. 50=neutro, >50=mais provável subida, <50=mais provável queda
+- reasoning: frase de 10-20 palavras em português europeu`;
+
+        try {
+            const messages = [
+                { role: 'system', content: 'És um analista financeiro. Respondes sempre em JSON válido, sem texto adicional.' },
+                { role: 'user', content: prompt },
+            ];
+            let raw;
+            if (this.mode === 'mom')         raw = await this._chatMOM(messages);
+            else if (this.mode === 'ollama') raw = await this._chatOllama(messages);
+            else return this._offlineNewsAnalysis(title);
+
+            const parsed = this._extractJSON(raw);
+            if (parsed && parsed.impact) {
+                return {
+                    impact: ['positive', 'negative', 'neutral'].includes(parsed.impact) ? parsed.impact : 'neutral',
+                    profitChance: Math.max(0, Math.min(100, Math.round(Number(parsed.profitChance) || 50))),
+                    reasoning: String(parsed.reasoning || '').slice(0, 180),
+                };
+            }
+        } catch { /* fall through */ }
+
+        return this._offlineNewsAnalysis(title);
+    }
+
+    _extractJSON(text) {
+        if (!text) return null;
+        // Try to find the first JSON object in the response
+        const direct = text.match(/\{[\s\S]*?"impact"[\s\S]*?\}/);
+        if (!direct) return null;
+        try {
+            return JSON.parse(direct[0]);
+        } catch {
+            // Try to clean up common LLM formatting issues
+            const cleaned = direct[0]
+                .replace(/[“”]/g, '"')
+                .replace(/[‘’]/g, "'")
+                .replace(/,\s*}/g, '}');
+            try { return JSON.parse(cleaned); } catch { return null; }
+        }
+    }
+
+    _offlineNewsAnalysis(title) {
+        const t = title.toLowerCase();
+        const positive = [
+            'profit', 'profits', 'gain', 'gains', 'rally', 'surge', 'surges', 'beat', 'beats',
+            'outperform', 'rise', 'rises', 'jump', 'jumps', 'soar', 'soars', 'record high',
+            'record', 'strong', 'rebound', 'recovery', 'upgrade', 'upgraded', 'bullish',
+            'lucro', 'subida', 'sobe', 'cresce', 'crescimento', 'recorde', 'forte', 'recupera',
+        ];
+        const negative = [
+            'loss', 'losses', 'crash', 'decline', 'declines', 'fall', 'falls', 'miss',
+            'misses', 'warning', 'downgrade', 'downgraded', 'plunge', 'tumble', 'drop',
+            'drops', 'weak', 'cut', 'cuts', 'slide', 'slides', 'bearish', 'concern',
+            'queda', 'cai', 'desce', 'perdas', 'fraco', 'corte', 'aviso',
+        ];
+
+        let pos = 0, neg = 0;
+        positive.forEach((k) => { if (t.includes(k)) pos++; });
+        negative.forEach((k) => { if (t.includes(k)) neg++; });
+
+        if (pos > neg) {
+            return {
+                impact: 'positive',
+                profitChance: Math.min(85, 55 + pos * 8),
+                reasoning: 'Tom positivo detectado (análise heurística por palavras-chave).',
+            };
+        }
+        if (neg > pos) {
+            return {
+                impact: 'negative',
+                profitChance: Math.max(15, 45 - neg * 8),
+                reasoning: 'Tom negativo detectado (análise heurística por palavras-chave).',
+            };
+        }
+        return { impact: 'neutral', profitChance: 50, reasoning: 'Sem direcção clara na manchete.' };
+    }
+
     clearHistory() {
         this.history = [];
     }

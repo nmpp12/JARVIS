@@ -3,6 +3,7 @@ import { FinanceAI } from './ai.js';
 import { FinanceCharts } from './charts.js';
 import { MarketDataService, DEFAULT_SYMBOLS } from './market.js';
 import { BankIntegration } from './bank.js';
+import { NotificationManager } from './notifications.js';
 
 const MONTH_NAMES = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -23,6 +24,7 @@ export class FinanceApp {
         this.charts = new FinanceCharts();
         this.market = new MarketDataService();
         this.bank = new BankIntegration();
+        this.notifications = new NotificationManager(this.store, this.market, this.ai);
         this.tab = 'dashboard';
         this.view = null;            // null | 'market' — full-screen overlay views
         this.aiMode = 'offline';
@@ -39,6 +41,29 @@ export class FinanceApp {
         this.marketAvailable = await this.market.healthCheck();
         // Refresh dashboard quietly to show market card status
         if (this.tab === 'dashboard') this._renderTab();
+        // Start notification monitoring (no-op if permission not granted)
+        this.notifications.startMonitoring();
+        this._setupSWMessageHandler();
+    }
+
+    /** Handle messages from the service worker (notification clicks, periodic sync). */
+    _setupSWMessageHandler() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            const msg = event.data || {};
+            if (msg.type === 'navigate') {
+                if (msg.view === 'market') {
+                    this.view = 'market';
+                    this.render();
+                } else if (msg.tab) {
+                    this.view = null;
+                    this.tab = msg.tab;
+                    this.render();
+                }
+            } else if (msg.type === 'periodic-check') {
+                this.notifications.runChecks();
+            }
+        });
     }
 
     // ─── Top-level render ────────────────────────────────────────────────────
@@ -480,14 +505,42 @@ export class FinanceApp {
                 this.market.fetchNews('stocks economy markets', 8),
             ]);
 
-            this.marketCache = { quotes, news, forecast: null, fetchedAt: Date.now() };
+            // News items start without analysis; will be populated in background
+            const newsWithAnalysis = news.map((n) => ({ ...n, analysis: null }));
+
+            this.marketCache = { quotes, news: newsWithAnalysis, forecast: null, fetchedAt: Date.now() };
             if (content) content.innerHTML = this._buildMarketHTML(this.marketCache);
             this._attachMarketListeners();
 
-            // Auto-generate forecast in background
+            // Auto-generate forecast + analyze news in background
             this._generateForecast();
+            this._analyzeNewsItems();
         } catch (e) {
             if (content) content.innerHTML = `<div class="fa-empty">Erro ao obter dados: ${this._esc(e.message)}</div>`;
+        }
+    }
+
+    /**
+     * Run AI analysis on each news headline in the cache and progressively
+     * update the rendered list as each result arrives.
+     */
+    async _analyzeNewsItems() {
+        if (!this.marketCache?.news?.length) return;
+        const items = this.marketCache.news;
+
+        // Limit to first 5 for cost/time
+        for (let i = 0; i < Math.min(items.length, 5); i++) {
+            try {
+                const analysis = await this.ai.analyzeNews(items[i]);
+                items[i].analysis = analysis;
+                // Re-render only if we're still on the market view
+                if (this.view === 'market') {
+                    const node = document.querySelector(`[data-news-idx="${i}"] .fa-news-ai`);
+                    if (node) {
+                        node.outerHTML = this._buildNewsAnalysisHTML(analysis);
+                    }
+                }
+            } catch { /* keep going */ }
         }
     }
 
@@ -531,27 +584,49 @@ export class FinanceApp {
             html += `<div class="fa-card"><div class="fa-loading-small">A gerar análise personalizada…</div></div>`;
         }
 
-        html += '<h3 class="fa-mk-sec">Notícias Financeiras</h3>';
+        html += '<h3 class="fa-mk-sec">Notícias + Análise IA (chance de profit)</h3>';
         if (!news.length) {
             html += '<div class="fa-empty-sm">Sem notícias disponíveis.</div>';
         } else {
             html += '<div class="fa-news-list">';
-            for (const n of news) {
+            news.forEach((n, idx) => {
                 const time = n.publishedAt ? n.publishedAt.toLocaleDateString('pt', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
                 html += `
-<a class="fa-news-item" href="${this._esc(n.link)}" target="_blank" rel="noopener noreferrer">
+<a class="fa-news-item" href="${this._esc(n.link)}" target="_blank" rel="noopener noreferrer" data-news-idx="${idx}">
   <div class="fa-news-title">${this._esc(n.title)}</div>
+  ${this._buildNewsAnalysisHTML(n.analysis)}
   <div class="fa-news-meta">
     <span class="fa-news-pub">${this._esc(n.publisher || '')}</span>
     ${time ? `<span class="fa-news-time">${time}</span>` : ''}
   </div>
 </a>`;
-            }
+            });
             html += '</div>';
         }
 
         html += '<div class="fa-disclaimer">⚠ Informação a título informativo. Não constitui aconselhamento financeiro.</div>';
         return html;
+    }
+
+    _buildNewsAnalysisHTML(analysis) {
+        if (!analysis) {
+            return `<div class="fa-news-ai pending"><span class="fa-news-pulse"></span> A analisar…</div>`;
+        }
+        const isUp = analysis.profitChance >= 50;
+        const cls = analysis.impact === 'positive' ? 'up' : analysis.impact === 'negative' ? 'down' : 'neutral';
+        const arrow = isUp ? '▲' : '▼';
+        const dir = isUp ? 'subida' : 'queda';
+        const barColor = isUp ? 'var(--income)' : 'var(--expense)';
+        const barWidth = Math.abs(analysis.profitChance - 50) * 2;
+        return `
+<div class="fa-news-ai ${cls}">
+  <div class="fa-news-prob">
+    <span class="fa-news-pct">${arrow} ${analysis.profitChance}%</span>
+    <span class="fa-news-dir">chance de ${dir}</span>
+  </div>
+  <div class="fa-news-bar"><div class="fa-news-bar-fill" style="width:${barWidth}%;background:${barColor}"></div></div>
+  ${analysis.reasoning ? `<div class="fa-news-reason">${this._esc(analysis.reasoning)}</div>` : ''}
+</div>`;
     }
 
     _attachMarketListeners() {
@@ -840,7 +915,10 @@ ${transactions.length > 50 ? `<div class="fa-empty-sm">+${transactions.length - 
         this.aiMode !== 'offline' ? this.aiMode.toUpperCase() : 'Offline'}</span>
   </div>
   <button id="reconnectBtn" class="fa-btn ghost full" style="margin-top:8px">Reconectar IA</button>
-</div>`);
+</div>
+
+${this._renderNotificationsSection()}
+`);
 
         document.getElementById('closeSettings').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
@@ -870,6 +948,112 @@ ${transactions.length > 50 ? `<div class="fa-empty-sm">+${transactions.length - 
             const badge = document.getElementById('aiStatusBadge');
             badge.className = `fa-badge${this.aiMode !== 'offline' ? ' success' : ''}`;
             badge.textContent = this.aiMode !== 'offline' ? this.aiMode.toUpperCase() : 'Offline';
+        });
+
+        this._attachNotificationListeners(modal);
+    }
+
+    // ─── Notifications UI ────────────────────────────────────────────────────
+
+    _renderNotificationsSection() {
+        const perm = this.notifications.getPermission();
+        const s = this.notifications.getSettings();
+
+        let permLabel = 'Não suportado';
+        let permClass = '';
+        if (perm === 'default')  { permLabel = 'Não activadas'; permClass = ''; }
+        if (perm === 'granted')  { permLabel = 'Activas';       permClass = ' success'; }
+        if (perm === 'denied')   { permLabel = 'Bloqueadas';    permClass = ' danger'; }
+
+        let body = '';
+        if (perm === 'unsupported') {
+            body = `<div class="fa-notif-hint">O teu browser não suporta notificações.</div>`;
+        } else if (perm === 'denied') {
+            body = `<div class="fa-notif-hint">A permissão foi negada. Vai a <em>Definições do Site</em> no browser para reactivar.</div>`;
+        } else if (perm === 'default') {
+            body = `<div class="fa-notif-hint">Activa para receberes alertas de orçamento, mercado e lembretes diários — sem precisares de servidor.</div>
+                    <button class="fa-btn primary full" id="enableNotifs" style="margin-top:10px">Activar Notificações</button>`;
+        } else {
+            body = `
+<div class="fa-notif-opts">
+  <label class="fa-notif-row-opt">
+    <span><strong>Alertas de orçamento</strong><br><small>Quando atinges ${s.budgetThreshold}% do orçamento de uma categoria</small></span>
+    <input type="checkbox" id="notifBudget" class="fa-switch"${s.budgetAlerts ? ' checked' : ''}>
+  </label>
+  <label class="fa-notif-row-opt">
+    <span><strong>Movimentos do mercado</strong><br><small>Variações ≥ ${s.marketThreshold}% nos teus activos seguidos</small></span>
+    <input type="checkbox" id="notifMarket" class="fa-switch"${s.marketAlerts ? ' checked' : ''}>
+  </label>
+  <label class="fa-notif-row-opt">
+    <span><strong>Notícias com análise IA</strong><br><small>Probabilidade de profit/perda calculada pela IA para cada notícia</small></span>
+    <input type="checkbox" id="notifNews" class="fa-switch"${s.newsAlerts ? ' checked' : ''}>
+  </label>
+  <label class="fa-notif-row-opt">
+    <span><strong>Lembrete diário</strong><br><small>Às ${s.reminderTime} se ainda não registaste despesas</small></span>
+    <input type="checkbox" id="notifDaily" class="fa-switch"${s.dailyReminder ? ' checked' : ''}>
+  </label>
+  <div class="fa-notif-row-opt">
+    <span><strong>Hora do lembrete</strong></span>
+    <input type="time" id="notifTime" value="${s.reminderTime}" class="fa-input" style="width:100px;padding:6px 10px;font-size:13px">
+  </div>
+</div>
+<button class="fa-btn ghost full" id="testNotif" style="margin-top:10px">Testar notificação</button>`;
+        }
+
+        return `
+<div class="fa-settings-ai">
+  <div class="fa-ai-row">
+    <span>Notificações</span>
+    <span class="fa-badge${permClass}" id="notifBadge">${permLabel}</span>
+  </div>
+  <div id="notifBody" style="margin-top:8px">${body}</div>
+</div>`;
+    }
+
+    _attachNotificationListeners(modal) {
+        const enableBtn = modal.querySelector('#enableNotifs');
+        if (enableBtn) {
+            enableBtn.addEventListener('click', async () => {
+                enableBtn.disabled = true;
+                enableBtn.textContent = 'A pedir permissão…';
+                const result = await this.notifications.requestPermission();
+                if (result === 'granted') {
+                    await this.notifications.showTest();
+                    this.notifications.startMonitoring();
+                }
+                // Re-render the notifications section
+                const body = modal.querySelector('#notifBody');
+                const badge = modal.querySelector('#notifBadge');
+                if (body && badge) {
+                    const html = this._renderNotificationsSection();
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = html;
+                    body.parentElement.replaceWith(wrap.firstElementChild);
+                    this._attachNotificationListeners(modal);
+                }
+            });
+        }
+
+        const onToggle = (id, key) => {
+            const cb = modal.querySelector(`#${id}`);
+            if (cb) cb.addEventListener('change', () => {
+                this.notifications.updateSettings({ [key]: cb.checked });
+            });
+        };
+        onToggle('notifBudget', 'budgetAlerts');
+        onToggle('notifMarket', 'marketAlerts');
+        onToggle('notifNews',   'newsAlerts');
+        onToggle('notifDaily',  'dailyReminder');
+
+        const timeInput = modal.querySelector('#notifTime');
+        if (timeInput) timeInput.addEventListener('change', () => {
+            this.notifications.updateSettings({ reminderTime: timeInput.value });
+        });
+
+        const testBtn = modal.querySelector('#testNotif');
+        if (testBtn) testBtn.addEventListener('click', async () => {
+            const ok = await this.notifications.showTest();
+            if (!ok) alert('Não foi possível mostrar a notificação. Verifica as permissões do browser.');
         });
     }
 
