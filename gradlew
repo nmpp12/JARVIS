@@ -137,14 +137,14 @@ if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
         ROOTDIRS="$ROOTDIRS$SEP$dir"
         SEP="|"
     done
-    OURCYGPATTERN="(^($(echo $ROOTDIRS)))"
+    OURCYGPATTERN="(^($ROOTDIRS))"
     # Add a user-defined pattern to the cygpath arguments
     if [ "$GRADLE_CYGPATTERN" != "" ] ; then
         OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
     fi
     # Now convert the arguments - kludge to limit ourselves to /bin/sh
     oldIFS="$IFS"
-    IFS=$'\n'
+    IFS=
     for arg in "$@" ; do
         CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN"`
         CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
