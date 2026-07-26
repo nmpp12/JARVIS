@@ -88,7 +88,9 @@ try {
     $hostRamMB = [int]((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1MB)
     $hostCpus  = [int]((Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum)
 
-    $maxRam = [int]($hostRamMB / 2)
+    # Metade da RAM do host, mas deixando-lhe sempre pelo menos 5 GB para
+    # o proprio Windows (abaixo disso o host comeca a paginar e congela).
+    $maxRam = [Math]::Min([int]($hostRamMB / 2), $hostRamMB - 5120)
     if ($RamMB -gt $maxRam) {
         Write-Host "AVISO: $RamMB MB e demasiado para um host com $hostRamMB MB; a reduzir para $maxRam MB." -ForegroundColor Yellow
         $RamMB = $maxRam

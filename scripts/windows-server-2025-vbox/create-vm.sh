@@ -79,9 +79,14 @@ fi
 # Dar demasiada RAM ou CPUs a VM faz o host entrar em paginacao e congelar.
 HOST_RAM_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
 HOST_CPUS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 0)"
-if [ "$HOST_RAM_MB" -gt 0 ] && [ "$VM_RAM_MB" -gt $((HOST_RAM_MB / 2)) ]; then
-  echo ">> AVISO: $VM_RAM_MB MB e demasiado para um host com $HOST_RAM_MB MB; a reduzir para $((HOST_RAM_MB / 2)) MB."
-  VM_RAM_MB=$((HOST_RAM_MB / 2))
+# Metade da RAM do host, mas deixando-lhe sempre pelo menos 5 GB.
+if [ "$HOST_RAM_MB" -gt 0 ]; then
+  MAX_RAM=$((HOST_RAM_MB / 2))
+  [ $((HOST_RAM_MB - 5120)) -lt "$MAX_RAM" ] && MAX_RAM=$((HOST_RAM_MB - 5120))
+  if [ "$MAX_RAM" -gt 0 ] && [ "$VM_RAM_MB" -gt "$MAX_RAM" ]; then
+    echo ">> AVISO: $VM_RAM_MB MB e demasiado para um host com $HOST_RAM_MB MB; a reduzir para $MAX_RAM MB."
+    VM_RAM_MB="$MAX_RAM"
+  fi
 fi
 if [ "$HOST_CPUS" -gt 1 ] && [ "$VM_CPUS" -gt $((HOST_CPUS / 2)) ]; then
   echo ">> AVISO: $VM_CPUS CPUs e demasiado para um host com $HOST_CPUS; a reduzir para $((HOST_CPUS / 2))."
