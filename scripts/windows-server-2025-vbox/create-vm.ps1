@@ -17,7 +17,7 @@ $VmName     = if ($Env:VM_NAME)     { $Env:VM_NAME }     else { 'JARVIS-WS2025' 
 $Cpus       = if ($Env:VM_CPUS)     { [int]$Env:VM_CPUS } else { 4 }
 $RamMB      = if ($Env:VM_RAM_MB)   { [int]$Env:VM_RAM_MB } else { 8192 }
 $DiskMB     = if ($Env:VM_DISK_MB)  { [int]$Env:VM_DISK_MB } else { 102400 }   # 100 GB (dinâmico)
-$AdminUser  = if ($Env:VM_USER)     { $Env:VM_USER }     else { 'jarvis' }
+$AdminUser  = if ($Env:VM_USER)     { $Env:VM_USER }     else { 'Nuno' }
 $AdminPass  = if ($Env:VM_PASS)     { $Env:VM_PASS }     else { 'Jarvis-2025!' }  # MUDA ISTO depois do 1.º login
 $ImageIndex = if ($Env:IMAGE_INDEX) { [int]$Env:IMAGE_INDEX } else { 0 }       # 0 = auto-detetar a edição Desktop Experience (com GUI)
 $NetMode    = if ($Env:NET_MODE)    { $Env:NET_MODE }    else { 'bridged' }    # 'bridged' ou 'nat'

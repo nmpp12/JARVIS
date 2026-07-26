@@ -16,7 +16,7 @@ VM_NAME="${VM_NAME:-JARVIS-WS2025}"
 VM_CPUS="${VM_CPUS:-4}"
 VM_RAM_MB="${VM_RAM_MB:-8192}"
 VM_DISK_MB="${VM_DISK_MB:-102400}"          # 100 GB (dinâmico)
-VM_USER="${VM_USER:-jarvis}"
+VM_USER="${VM_USER:-Nuno}"
 VM_PASS="${VM_PASS:-Jarvis-2025!}"          # MUDA ISTO depois do 1.º login
 IMAGE_INDEX="${IMAGE_INDEX:-}"              # vazio = auto-detetar a edição Desktop Experience (com GUI)
 NET_MODE="${NET_MODE:-bridged}"             # 'bridged' ou 'nat'

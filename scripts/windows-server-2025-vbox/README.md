@@ -72,7 +72,7 @@ O log fica em `C:\provision.log` dentro da VM.
 |---|---|---|
 | `VM_NAME` | `JARVIS-WS2025` | Nome da VM |
 | `VM_CPUS` / `VM_RAM_MB` / `VM_DISK_MB` | `4` / `8192` / `102400` | Recursos |
-| `VM_USER` / `VM_PASS` | `jarvis` / `Jarvis-2025!` | **Muda a password após o 1.º login** |
+| `VM_USER` / `VM_PASS` | `Nuno` / `Jarvis-2025!` | Conta de administrador criada na instalação. **Muda a password após o 1.º login** |
 | `IMAGE_INDEX` | *auto* | Por omissão o script deteta e escolhe automaticamente a edição **Standard (Desktop Experience)** — a versão com ambiente de trabalho gráfico. Define manualmente só se quiseres outra edição (lista com `VBoxManage unattended detect --iso=<iso>`) |
 | `NET_MODE` | `bridged` | `bridged` = a VM apanha IP na tua rede local (necessário para expor RDP via No-IP). `nat` = RDP só via `127.0.0.1:53389` |
 | `VM_BASE_DIR` | Windows: `D:\JARVIS-VMs` · Linux/macOS: predefinição do VirtualBox | Pasta onde ficam guardados os ficheiros da VM (disco virtual) **e** o ISO. **Tem de ser num SSD.** Se a tua `D:` for um disco mecânico/externo, aponta para o SSD (ex.: `$Env:VM_BASE_DIR='C:\JARVIS-VMs'`) e usa `ISO_PATH` para manter o ISO noutra drive |
