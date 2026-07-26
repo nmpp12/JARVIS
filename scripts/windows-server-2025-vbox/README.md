@@ -12,8 +12,36 @@ no primeiro arranque:
 ## Requisitos
 
 - [VirtualBox 7.0+](https://www.virtualbox.org/wiki/Downloads) instalado no host
-- ~15 GB livres em disco (ISO ~5 GB + disco dinâmico da VM)
+- **Um SSD** para os ficheiros da VM (ver `VM_BASE_DIR`). Num disco mecânico ou
+  externo USB a instalação provoca timeouts de disco (`AHCI Port 0 reset`) e
+  pode nunca terminar.
+- **Virtualização por hardware disponível para o VirtualBox** — ou seja, sem
+  Hyper-V / VBS ativos no host (ver secção abaixo).
+- ~30 GB livres no SSD (a VM cresce até ~25 GB) + ~5 GB para o ISO
 - Ligação à internet (o download dos instaladores acontece dentro da VM)
+
+O script verifica estas duas condições no arranque e avisa antes de começar.
+
+### Hyper-V / VBS têm de estar desativados
+
+Se o Windows tiver Hyper-V, WSL2, Sandbox ou *Integridade da Memória* ativos,
+eles reservam o VT-x e o VirtualBox cai para o backend NEM — a VM fica dezenas
+de vezes mais lenta (o log mostra `HMR3Init: Attempting fall back to NEM`).
+Num PowerShell como Administrador:
+
+```powershell
+Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -NoRestart
+Disable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -NoRestart
+Disable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart
+bcdedit /set hypervisorlaunchtype off
+```
+
+Depois desativa a *Integridade da Memória* em Segurança do Windows → Segurança
+do dispositivo → Isolamento do núcleo, e reinicia o PC.
+
+⚠️ Isto desativa o **WSL2**, o **Docker Desktop** (backend WSL) e a **Sandbox
+do Windows**, e reduz uma proteção de segurança do host. É o compromisso
+necessário para correr VirtualBox à velocidade normal na mesma máquina.
 
 ## Como usar
 
@@ -47,7 +75,7 @@ O log fica em `C:\provision.log` dentro da VM.
 | `VM_USER` / `VM_PASS` | `jarvis` / `Jarvis-2025!` | **Muda a password após o 1.º login** |
 | `IMAGE_INDEX` | *auto* | Por omissão o script deteta e escolhe automaticamente a edição **Standard (Desktop Experience)** — a versão com ambiente de trabalho gráfico. Define manualmente só se quiseres outra edição (lista com `VBoxManage unattended detect --iso=<iso>`) |
 | `NET_MODE` | `bridged` | `bridged` = a VM apanha IP na tua rede local (necessário para expor RDP via No-IP). `nat` = RDP só via `127.0.0.1:53389` |
-| `VM_BASE_DIR` | Windows: `D:\JARVIS-VMs` · Linux/macOS: predefinição do VirtualBox | Pasta onde ficam guardados os ficheiros da VM (disco virtual) **e** o ISO. No Windows tudo vai para a drive `D:\` por omissão; se não tiveres drive D:, define outra (ex.: `$Env:VM_BASE_DIR='C:\VMs'`) |
+| `VM_BASE_DIR` | Windows: `D:\JARVIS-VMs` · Linux/macOS: predefinição do VirtualBox | Pasta onde ficam guardados os ficheiros da VM (disco virtual) **e** o ISO. **Tem de ser num SSD.** Se a tua `D:` for um disco mecânico/externo, aponta para o SSD (ex.: `$Env:VM_BASE_DIR='C:\JARVIS-VMs'`) e usa `ISO_PATH` para manter o ISO noutra drive |
 | `ISO_URL` / `ISO_PATH` | Evaluation Center | Se o link falhar, descarrega de [microsoft.com/evalcenter](https://www.microsoft.com/evalcenter/evaluate-windows-server-2025) e define `ISO_PATH` |
 
 Exemplo: `VM_RAM_MB=16384 NET_MODE=nat ./create-vm.sh`

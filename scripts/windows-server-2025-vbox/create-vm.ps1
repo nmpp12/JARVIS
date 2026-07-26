@@ -36,6 +36,51 @@ if (-not (Test-Path $driveRoot)) {
 New-Item -ItemType Directory -Path $BaseDir -Force | Out-Null
 Write-Host "A VM e o ISO ficam em: $BaseDir" -ForegroundColor Cyan
 
+# ---------------------- Verificações de desempenho --------------------
+# Duas condições tornam a instalação inviável (muito lenta, com timeouts
+# de disco e ecrãs pretos prolongados). Avisamos antes de perder uma hora.
+
+# 1) Hyper-V / VBS ativos => o VirtualBox não consegue usar VT-x e cai
+#    para o backend NEM, dezenas de vezes mais lento.
+$hypervisorOn = $false
+try { $hypervisorOn = (Get-CimInstance Win32_ComputerSystem).HypervisorPresent } catch { }
+if ($hypervisorOn) {
+    Write-Host ''
+    Write-Host 'AVISO GRAVE: está um hipervisor (Hyper-V/VBS) ativo neste Windows.' -ForegroundColor Red
+    Write-Host 'O VirtualBox não vai conseguir usar VT-x e a VM ficará extremamente' -ForegroundColor Red
+    Write-Host 'lenta (log: "HMR3Init: Attempting fall back to NEM").' -ForegroundColor Red
+    Write-Host 'Para corrigir, num PowerShell como Administrador:' -ForegroundColor Yellow
+    Write-Host '  Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -NoRestart' -ForegroundColor Yellow
+    Write-Host '  Disable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -NoRestart' -ForegroundColor Yellow
+    Write-Host '  Disable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart' -ForegroundColor Yellow
+    Write-Host '  bcdedit /set hypervisorlaunchtype off' -ForegroundColor Yellow
+    Write-Host 'Desativa tambem a Integridade da Memoria (Seguranca do Windows ->' -ForegroundColor Yellow
+    Write-Host 'Seguranca do dispositivo -> Isolamento do nucleo) e reinicia o PC.' -ForegroundColor Yellow
+    Write-Host 'Nota: isto desativa o WSL2, o Docker Desktop e a Sandbox do Windows.' -ForegroundColor Yellow
+}
+
+# 2) Pasta da VM num disco mecanico (ou externo USB) => timeouts do
+#    controlador AHCI durante a instalacao. Um SSD e praticamente obrigatorio.
+try {
+    $mediaType = Get-Partition -DriveLetter $driveRoot.Substring(0, 1) -ErrorAction Stop |
+        Get-Disk | ForEach-Object { (Get-PhysicalDisk -Number $_.Number).MediaType }
+    if ($mediaType -and $mediaType -ne 'SSD') {
+        Write-Host ''
+        Write-Host "AVISO GRAVE: a drive $driveRoot e do tipo '$mediaType' (nao e SSD)." -ForegroundColor Red
+        Write-Host 'Instalar o Windows Server num disco mecanico/USB provoca timeouts' -ForegroundColor Red
+        Write-Host '("AHCI Port 0 reset" no log) e pode nunca terminar.' -ForegroundColor Red
+        Write-Host 'Aponta VM_BASE_DIR para um SSD, por exemplo:' -ForegroundColor Yellow
+        Write-Host '  $Env:VM_BASE_DIR = "C:\JARVIS-VMs"' -ForegroundColor Yellow
+        Write-Host 'O ISO pode ficar noutra drive, definindo ISO_PATH.' -ForegroundColor Yellow
+    }
+} catch { }
+
+if ($hypervisorOn -or ($mediaType -and $mediaType -ne 'SSD')) {
+    Write-Host ''
+    Write-Host 'Carrega em Enter para continuar mesmo assim, ou Ctrl+C para cancelar.' -ForegroundColor Yellow
+    Read-Host | Out-Null
+}
+
 # ---------------------- VBoxManage ------------------------------------
 $VBoxManage = Get-Command VBoxManage -ErrorAction SilentlyContinue
 if ($VBoxManage) { $VBoxManage = $VBoxManage.Source }
