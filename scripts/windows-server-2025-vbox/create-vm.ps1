@@ -159,6 +159,23 @@ VBox createmedium disk --filename $VdiPath --size $DiskMB
 VBox storagectl $VmName --name SATA --add sata --controller IntelAhci --portcount 2
 VBox storageattach $VmName --storagectl SATA --port 0 --device 0 --type hdd --medium $VdiPath
 
+# Em discos mecanicos/USB, a cache de I/O do host reduz drasticamente a
+# latencia e evita os timeouts do controlador ("AHCI Port 0 reset").
+if ($mediaType -and $mediaType -ne 'SSD') {
+    Write-Host 'Disco lento detetado: a ativar a cache de I/O do host.' -ForegroundColor Yellow
+    VBox storagectl $VmName --name SATA --hostiocache on
+}
+
+# O antivirus a analisar o disco virtual enquanto ele cresce e outra fonte
+# grande de lentidao. Tentamos excluir a pasta (requer PowerShell elevado).
+try {
+    Add-MpPreference -ExclusionPath $BaseDir -ErrorAction Stop
+    Write-Host "Pasta excluida da analise do Windows Defender: $BaseDir" -ForegroundColor Cyan
+} catch {
+    Write-Host 'Sugestao: exclui a pasta da VM do Windows Defender (PowerShell como Administrador):' -ForegroundColor Yellow
+    Write-Host "  Add-MpPreference -ExclusionPath '$BaseDir'" -ForegroundColor Yellow
+}
+
 # ---------------------- Comando pós-instalação ------------------------
 # provision.ps1 é comprimido (sem comentários/linhas vazias) e codificado
 # em base64 UTF-16LE para correr elevado no primeiro logon.
