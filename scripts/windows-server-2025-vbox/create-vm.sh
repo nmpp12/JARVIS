@@ -20,11 +20,18 @@ VM_USER="${VM_USER:-jarvis}"
 VM_PASS="${VM_PASS:-Jarvis-2025!}"          # MUDA ISTO depois do 1.º login
 IMAGE_INDEX="${IMAGE_INDEX:-}"              # vazio = auto-detetar a edição Desktop Experience (com GUI)
 NET_MODE="${NET_MODE:-bridged}"             # 'bridged' ou 'nat'
+VM_BASE_DIR="${VM_BASE_DIR:-}"              # opcional: pasta onde ficam a VM e o ISO (ex.: /mnt/dados/VMs)
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).
 # Se o link mudar, descarrega manualmente e define ISO_PATH.
 ISO_URL="${ISO_URL:-https://go.microsoft.com/fwlink/?linkid=2293312&clcid=0x409}"
-ISO_PATH="${ISO_PATH:-$SCRIPT_DIR/downloads/WindowsServer2025-eval.iso}"
+if [ -n "$VM_BASE_DIR" ]; then
+  mkdir -p "$VM_BASE_DIR"
+  ISO_PATH="${ISO_PATH:-$VM_BASE_DIR/downloads/WindowsServer2025-eval.iso}"
+  echo ">> A VM e o ISO ficam em: $VM_BASE_DIR"
+else
+  ISO_PATH="${ISO_PATH:-$SCRIPT_DIR/downloads/WindowsServer2025-eval.iso}"
+fi
 
 command -v VBoxManage >/dev/null 2>&1 || {
   echo "ERRO: VBoxManage não encontrado. Instala o VirtualBox: https://www.virtualbox.org/wiki/Downloads" >&2
@@ -73,7 +80,11 @@ OS_TYPE=Windows2025_64
 VBoxManage list ostypes | grep -q Windows2025_64 || OS_TYPE=Windows2022_64
 
 echo ">> A criar a VM '$VM_NAME' ($OS_TYPE, $VM_CPUS CPUs, $VM_RAM_MB MB RAM, $((VM_DISK_MB / 1024)) GB disco)..."
-VBoxManage createvm --name "$VM_NAME" --ostype "$OS_TYPE" --register
+if [ -n "$VM_BASE_DIR" ]; then
+  VBoxManage createvm --name "$VM_NAME" --ostype "$OS_TYPE" --basefolder "$VM_BASE_DIR" --register
+else
+  VBoxManage createvm --name "$VM_NAME" --ostype "$OS_TYPE" --register
+fi
 VBoxManage modifyvm "$VM_NAME" --memory "$VM_RAM_MB" --cpus "$VM_CPUS" --vram 128 \
   --graphicscontroller vboxsvga --clipboard-mode bidirectional --mouse usbtablet
 

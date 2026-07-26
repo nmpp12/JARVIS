@@ -21,11 +21,20 @@ $AdminUser  = if ($Env:VM_USER)     { $Env:VM_USER }     else { 'jarvis' }
 $AdminPass  = if ($Env:VM_PASS)     { $Env:VM_PASS }     else { 'Jarvis-2025!' }  # MUDA ISTO depois do 1.º login
 $ImageIndex = if ($Env:IMAGE_INDEX) { [int]$Env:IMAGE_INDEX } else { 0 }       # 0 = auto-detetar a edição Desktop Experience (com GUI)
 $NetMode    = if ($Env:NET_MODE)    { $Env:NET_MODE }    else { 'bridged' }    # 'bridged' ou 'nat'
+$BaseDir    = if ($Env:VM_BASE_DIR) { $Env:VM_BASE_DIR } else { 'D:\JARVIS-VMs' }  # onde ficam a VM e o ISO
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).
 # Se o link mudar, descarrega manualmente e aponta ISO_PATH para o ficheiro.
 $IsoUrl  = if ($Env:ISO_URL)  { $Env:ISO_URL }  else { 'https://go.microsoft.com/fwlink/?linkid=2293312&clcid=0x409' }
-$IsoPath = if ($Env:ISO_PATH) { $Env:ISO_PATH } else { Join-Path $ScriptDir 'downloads\WindowsServer2025-eval.iso' }
+$IsoPath = if ($Env:ISO_PATH) { $Env:ISO_PATH } else { Join-Path $BaseDir 'downloads\WindowsServer2025-eval.iso' }
+
+# ---------------------- Pasta base (drive D:\ por omissão) ------------
+$driveRoot = [System.IO.Path]::GetPathRoot($BaseDir)   # ex.: 'D:\'
+if (-not (Test-Path $driveRoot)) {
+    throw "A drive '$driveRoot' não existe neste PC. Define VM_BASE_DIR para outra localização (ex.: `$Env:VM_BASE_DIR='E:\VMs')."
+}
+New-Item -ItemType Directory -Path $BaseDir -Force | Out-Null
+Write-Host "A VM e o ISO ficam em: $BaseDir" -ForegroundColor Cyan
 
 # ---------------------- VBoxManage ------------------------------------
 $VBoxManage = Get-Command VBoxManage -ErrorAction SilentlyContinue
@@ -78,7 +87,7 @@ $OsType = 'Windows2025_64'
 if (-not ((& $VBoxManage list ostypes) -match 'Windows2025_64')) { $OsType = 'Windows2022_64' }
 
 Write-Host "A criar a VM '$VmName' ($OsType, $Cpus CPUs, $RamMB MB RAM, $($DiskMB/1024) GB disco)..." -ForegroundColor Cyan
-VBox createvm --name $VmName --ostype $OsType --register
+VBox createvm --name $VmName --ostype $OsType --basefolder $BaseDir --register
 VBox modifyvm $VmName --memory $RamMB --cpus $Cpus --vram 128 `
     --graphicscontroller vboxsvga --clipboard-mode bidirectional --mouse usbtablet
 
