@@ -1,5 +1,5 @@
-# =====================================================================
-# create-vm.ps1 — cria uma VM VirtualBox com Windows Server 2025 (eval),
+﻿# =====================================================================
+# create-vm.ps1 - cria uma VM VirtualBox com Windows Server 2025 (eval),
 # instalação 100% automática, e provisiona Thinstuff XP/VS + No-IP DUC.
 #
 # Correr num host WINDOWS com VirtualBox 7.0+ instalado:
@@ -75,7 +75,7 @@ if ($ImageIndex -eq 0) {
     if (-not $pick) { $pick = $images | Where-Object { $_.Name -match 'Desktop Experience' } | Select-Object -First 1 }
     if ($pick) {
         $ImageIndex = $pick.Index
-        Write-Host "Edição selecionada: imagem #$($pick.Index) — $($pick.Name)" -ForegroundColor Cyan
+        Write-Host "Edição selecionada: imagem #$($pick.Index) - $($pick.Name)" -ForegroundColor Cyan
     } else {
         $ImageIndex = 2
         Write-Host 'AVISO: não consegui detetar a edição Desktop Experience no ISO; a usar o índice 2 (normalmente Standard Desktop Experience).' -ForegroundColor Yellow
@@ -97,7 +97,7 @@ if ($NetMode -eq 'bridged') {
     Write-Host "Rede: bridged via '$bridgeIf' (a VM fica com IP na tua rede local)." -ForegroundColor Cyan
     VBox modifyvm $VmName --nic1 bridged --bridgeadapter1 $bridgeIf
 } else {
-    Write-Host 'Rede: NAT com port-forward — RDP disponível em 127.0.0.1:53389.' -ForegroundColor Cyan
+    Write-Host 'Rede: NAT com port-forward - RDP disponível em 127.0.0.1:53389.' -ForegroundColor Cyan
     VBox modifyvm $VmName --nic1 nat --natpf1 'rdp,tcp,,53389,,3389'
 }
 

@@ -1,5 +1,5 @@
-# =====================================================================
-# provision.ps1 — corre DENTRO da VM (elevado), no primeiro arranque
+﻿# =====================================================================
+# provision.ps1 - corre DENTRO da VM (elevado), no primeiro arranque
 # do Windows Server 2025, injetado pelo create-vm.* via
 # "VBoxManage unattended install --post-install-command".
 #

@@ -107,7 +107,8 @@ VBoxManage storageattach "$VM_NAME" --storagectl SATA --port 0 --device 0 --type
 # ---------------------- Comando pós-instalação ------------------------
 # provision.ps1 é comprimido (sem comentários/linhas vazias) e codificado
 # em base64 UTF-16LE para correr elevado no primeiro logon do Windows.
-ENCODED="$(grep -vE '^[[:space:]]*(#|$)' "$SCRIPT_DIR/provision.ps1" \
+ENCODED="$(sed '1s/^\xEF\xBB\xBF//' "$SCRIPT_DIR/provision.ps1" \
+  | grep -vE '^[[:space:]]*(#|$)' \
   | sed 's/$/\r/' | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')"
 POST_CMD="powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $ENCODED"
 
