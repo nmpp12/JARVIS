@@ -88,6 +88,12 @@ fi
 VBoxManage modifyvm "$VM_NAME" --memory "$VM_RAM_MB" --cpus "$VM_CPUS" --vram 128 \
   --graphicscontroller vboxsvga --clipboard-mode bidirectional --mouse usbtablet
 
+# O Windows Server 2025 exige UEFI (com BIOS clássico o instalador falha
+# com "There is an error selecting this partition for install").
+VBoxManage modifyvm "$VM_NAME" --firmware efi64
+VBoxManage modifyvm "$VM_NAME" --tpm-type=2.0 \
+  || echo ">> Aviso: esta versão do VirtualBox não suporta TPM emulado; a continuar sem TPM."
+
 if [ "$NET_MODE" = "bridged" ]; then
   BRIDGE_IF="$(VBoxManage list bridgedifs | awk -F': +' '/^Name:/{print $2; exit}')"
   [ -n "$BRIDGE_IF" ] || { echo "ERRO: nenhum adaptador bridged; usa NET_MODE=nat." >&2; exit 1; }

@@ -75,3 +75,10 @@ Exemplo: `VM_RAM_MB=16384 NET_MODE=nat ./create-vm.sh`
   automaticamente (VirtualBox < 7.1); funciona na mesma.
 - **A instalação pede input**: confirma o `IMAGE_INDEX` com
   `VBoxManage unattended detect --iso=downloads/WindowsServer2025-eval.iso`.
+- **"There is an error selecting this partition for install"**: a VM foi
+  criada com BIOS clássico — o Windows Server 2025 exige UEFI. Os scripts
+  já configuram `--firmware efi64` + TPM 2.0; apaga a VM antiga
+  (VirtualBox → botão direito → *Remove* → *Delete all files*) e volta a
+  correr o script.
+- **Aparece "Press any key to boot from CD or DVD..."** no arranque em
+  EFI: carrega numa tecla rapidamente para arrancar do ISO.
