@@ -192,7 +192,7 @@ VBox unattended install $VmName `
     --password=$AdminPass `
     --full-user-name=$AdminUser `
     --image-index=$ImageIndex `
-    --hostname=jarvis-ws2025.local `
+    --hostname=WSFormacao-2025.local `
     --locale=pt_PT --country=PT `
     --install-additions `
     --post-install-command=$postCmd

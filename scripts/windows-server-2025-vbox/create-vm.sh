@@ -126,7 +126,7 @@ VBoxManage unattended install "$VM_NAME" \
   --password="$VM_PASS" \
   --full-user-name="$VM_USER" \
   --image-index="$IMAGE_INDEX" \
-  --hostname=jarvis-ws2025.local \
+  --hostname=WSFormacao-2025.local \
   --locale=pt_PT --country=PT \
   --install-additions \
   --post-install-command="$POST_CMD"
