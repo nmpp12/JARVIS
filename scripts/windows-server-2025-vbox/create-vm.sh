@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------------------- Configuração ---------------------------------
-VM_NAME="${VM_NAME:-JARVIS-WS2025}"
+VM_NAME="${VM_NAME:-WSFormacao-2025}"
 VM_CPUS="${VM_CPUS:-4}"
 VM_RAM_MB="${VM_RAM_MB:-8192}"
 VM_DISK_MB="${VM_DISK_MB:-102400}"          # 100 GB (dinâmico)

@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # ---------------------- Configuração ---------------------------------
-$VmName     = if ($Env:VM_NAME)     { $Env:VM_NAME }     else { 'JARVIS-WS2025' }
+$VmName     = if ($Env:VM_NAME)     { $Env:VM_NAME }     else { 'WSFormacao-2025' }
 $Cpus       = if ($Env:VM_CPUS)     { [int]$Env:VM_CPUS } else { 4 }
 $RamMB      = if ($Env:VM_RAM_MB)   { [int]$Env:VM_RAM_MB } else { 8192 }
 $DiskMB     = if ($Env:VM_DISK_MB)  { [int]$Env:VM_DISK_MB } else { 102400 }   # 100 GB (dinâmico)

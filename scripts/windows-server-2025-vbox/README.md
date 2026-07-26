@@ -70,7 +70,7 @@ O log fica em `C:\provision.log` dentro da VM.
 
 | Variável | Predefinição | Notas |
 |---|---|---|
-| `VM_NAME` | `JARVIS-WS2025` | Nome da VM |
+| `VM_NAME` | `WSFormacao-2025` | Nome da VM no VirtualBox (o hostname do Windows é definido em conjunto) |
 | `VM_CPUS` / `VM_RAM_MB` / `VM_DISK_MB` | `4` / `8192` / `102400` | Recursos |
 | `VM_USER` / `VM_PASS` | `Nuno` / `Jarvis-2025!` | Conta de administrador criada na instalação. **Muda a password após o 1.º login** |
 | `IMAGE_INDEX` | *auto* | Por omissão o script deteta e escolhe automaticamente a edição **Standard (Desktop Experience)** — a versão com ambiente de trabalho gráfico. Define manualmente só se quiseres outra edição (lista com `VBoxManage unattended detect --iso=<iso>`) |
