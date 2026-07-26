@@ -19,7 +19,7 @@ $RamMB      = if ($Env:VM_RAM_MB)   { [int]$Env:VM_RAM_MB } else { 8192 }
 $DiskMB     = if ($Env:VM_DISK_MB)  { [int]$Env:VM_DISK_MB } else { 102400 }   # 100 GB (dinâmico)
 $AdminUser  = if ($Env:VM_USER)     { $Env:VM_USER }     else { 'jarvis' }
 $AdminPass  = if ($Env:VM_PASS)     { $Env:VM_PASS }     else { 'Jarvis-2025!' }  # MUDA ISTO depois do 1.º login
-$ImageIndex = if ($Env:IMAGE_INDEX) { [int]$Env:IMAGE_INDEX } else { 2 }       # 2 = Standard (Desktop Experience)
+$ImageIndex = if ($Env:IMAGE_INDEX) { [int]$Env:IMAGE_INDEX } else { 0 }       # 0 = auto-detetar a edição Desktop Experience (com GUI)
 $NetMode    = if ($Env:NET_MODE)    { $Env:NET_MODE }    else { 'bridged' }    # 'bridged' ou 'nat'
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).
@@ -48,6 +48,28 @@ if (-not (Test-Path $IsoPath)) {
     & curl.exe -L --fail --retry 4 --retry-delay 5 -C - -o $IsoPath $IsoUrl
     if ($LASTEXITCODE -ne 0) {
         throw "Download do ISO falhou. Descarrega manualmente em https://www.microsoft.com/evalcenter/evaluate-windows-server-2025 e define ISO_PATH."
+    }
+}
+
+# ---------------------- Edição (Desktop Experience) -------------------
+# Garante a edição com interface gráfica completa ("Desktop Experience"),
+# em vez da edição Core (só linha de comandos).
+if ($ImageIndex -eq 0) {
+    $images = & $VBoxManage unattended detect --iso=$IsoPath 2>$null |
+        Select-String -Pattern 'Image #(\d+)\s*=\s*(.+)$' | ForEach-Object {
+            [pscustomobject]@{
+                Index = [int]$_.Matches[0].Groups[1].Value
+                Name  = $_.Matches[0].Groups[2].Value.Trim()
+            }
+        }
+    $pick = $images | Where-Object { $_.Name -match 'Desktop Experience' -and $_.Name -match 'Standard' } | Select-Object -First 1
+    if (-not $pick) { $pick = $images | Where-Object { $_.Name -match 'Desktop Experience' } | Select-Object -First 1 }
+    if ($pick) {
+        $ImageIndex = $pick.Index
+        Write-Host "Edição selecionada: imagem #$($pick.Index) — $($pick.Name)" -ForegroundColor Cyan
+    } else {
+        $ImageIndex = 2
+        Write-Host 'AVISO: não consegui detetar a edição Desktop Experience no ISO; a usar o índice 2 (normalmente Standard Desktop Experience).' -ForegroundColor Yellow
     }
 }
 

@@ -18,7 +18,7 @@ VM_RAM_MB="${VM_RAM_MB:-8192}"
 VM_DISK_MB="${VM_DISK_MB:-102400}"          # 100 GB (dinâmico)
 VM_USER="${VM_USER:-jarvis}"
 VM_PASS="${VM_PASS:-Jarvis-2025!}"          # MUDA ISTO depois do 1.º login
-IMAGE_INDEX="${IMAGE_INDEX:-2}"             # 2 = Standard (Desktop Experience)
+IMAGE_INDEX="${IMAGE_INDEX:-}"              # vazio = auto-detetar a edição Desktop Experience (com GUI)
 NET_MODE="${NET_MODE:-bridged}"             # 'bridged' ou 'nat'
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).
@@ -45,6 +45,27 @@ if [ ! -f "$ISO_PATH" ]; then
     echo "https://www.microsoft.com/evalcenter/evaluate-windows-server-2025 e define ISO_PATH." >&2
     exit 1
   }
+fi
+
+# ---------------------- Edição (Desktop Experience) -------------------
+# Garante a edição com interface gráfica completa ("Desktop Experience"),
+# em vez da edição Core (só linha de comandos).
+if [ -z "$IMAGE_INDEX" ]; then
+  DETECT="$(VBoxManage unattended detect --iso="$ISO_PATH" 2>/dev/null || true)"
+  pick_image() {
+    printf '%s\n' "$DETECT" | grep -iE "Image #[0-9]+ *=.*$1" | head -1 \
+      | sed 's/.*Image #\([0-9][0-9]*\).*/\1/'
+  }
+  IMAGE_INDEX="$(pick_image 'standard.*desktop experience' || true)"
+  [ -n "$IMAGE_INDEX" ] || IMAGE_INDEX="$(pick_image 'desktop experience' || true)"
+  if [ -n "$IMAGE_INDEX" ]; then
+    IMAGE_NAME="$(printf '%s\n' "$DETECT" | grep -E "Image #$IMAGE_INDEX *=" | sed 's/.*= *//')"
+    echo ">> Edição selecionada: imagem #$IMAGE_INDEX — $IMAGE_NAME"
+  else
+    IMAGE_INDEX=2
+    echo ">> AVISO: não consegui detetar a edição Desktop Experience no ISO;"
+    echo ">> a usar o índice 2 (normalmente Standard Desktop Experience)."
+  fi
 fi
 
 # ---------------------- Criar a VM ------------------------------------
