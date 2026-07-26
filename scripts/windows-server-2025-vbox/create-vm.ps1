@@ -81,6 +81,30 @@ if ($hypervisorOn -or ($mediaType -and $mediaType -ne 'SSD')) {
     Read-Host | Out-Null
 }
 
+# ---------------------- Recursos vs. capacidade do host ---------------
+# Dar demasiada RAM ou CPUs a VM faz o host entrar em paginacao e
+# congelar. Limitamos a metade do que a maquina tem.
+try {
+    $hostRamMB = [int]((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1MB)
+    $hostCpus  = [int]((Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum)
+
+    $maxRam = [int]($hostRamMB / 2)
+    if ($RamMB -gt $maxRam) {
+        Write-Host "AVISO: $RamMB MB e demasiado para um host com $hostRamMB MB; a reduzir para $maxRam MB." -ForegroundColor Yellow
+        $RamMB = $maxRam
+    }
+    if ($RamMB -lt 2048) {
+        Write-Host "AVISO: apenas $RamMB MB disponiveis para a VM. O Windows Server precisa de 2048 MB no minimo" -ForegroundColor Red
+        Write-Host 'e a instalacao vai ser muito lenta. Considera fechar aplicacoes ou usar outra maquina.' -ForegroundColor Red
+    }
+
+    $maxCpu = [Math]::Max(1, [int]($hostCpus / 2))
+    if ($Cpus -gt $maxCpu) {
+        Write-Host "AVISO: $Cpus CPUs e demasiado para um host com $hostCpus CPUs logicos; a reduzir para $maxCpu." -ForegroundColor Yellow
+        $Cpus = $maxCpu
+    }
+} catch { }
+
 # ---------------------- VBoxManage ------------------------------------
 $VBoxManage = Get-Command VBoxManage -ErrorAction SilentlyContinue
 if ($VBoxManage) { $VBoxManage = $VBoxManage.Source }

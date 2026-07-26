@@ -76,6 +76,18 @@ if [ -z "$IMAGE_INDEX" ]; then
 fi
 
 # ---------------------- Criar a VM ------------------------------------
+# Dar demasiada RAM ou CPUs a VM faz o host entrar em paginacao e congelar.
+HOST_RAM_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
+HOST_CPUS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 0)"
+if [ "$HOST_RAM_MB" -gt 0 ] && [ "$VM_RAM_MB" -gt $((HOST_RAM_MB / 2)) ]; then
+  echo ">> AVISO: $VM_RAM_MB MB e demasiado para um host com $HOST_RAM_MB MB; a reduzir para $((HOST_RAM_MB / 2)) MB."
+  VM_RAM_MB=$((HOST_RAM_MB / 2))
+fi
+if [ "$HOST_CPUS" -gt 1 ] && [ "$VM_CPUS" -gt $((HOST_CPUS / 2)) ]; then
+  echo ">> AVISO: $VM_CPUS CPUs e demasiado para um host com $HOST_CPUS; a reduzir para $((HOST_CPUS / 2))."
+  VM_CPUS=$((HOST_CPUS / 2))
+fi
+
 OS_TYPE=Windows2025_64
 VBoxManage list ostypes | grep -q Windows2025_64 || OS_TYPE=Windows2022_64
 
