@@ -17,16 +17,22 @@ $ErrorActionPreference = 'Continue'
 Start-Transcript -Path 'C:\provision.log' -Append
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 function Get-Installer {
-  param([string]$Url, [string]$Dest)
-  for ($i = 1; $i -le 20; $i++) {
-    try {
-      Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
-      Write-Output "OK: $Url"
+  # Usa curl.exe (incluido no Windows) em vez de Invoke-WebRequest: segue
+  # redirecionamentos, retoma downloads interrompidos e nao e rejeitado
+  # pelos servidores que bloqueiam o agente do PowerShell.
+  # MinBytes protege contra ficheiros truncados, que depois falham a
+  # instalar com "not a valid application for this OS platform".
+  param([string]$Url, [string]$Dest, [int]$MinBytes)
+  for ($i = 1; $i -le 10; $i++) {
+    & curl.exe -L -C - --retry 5 --retry-delay 5 --retry-all-errors --fail -o $Dest $Url
+    if ((Test-Path $Dest) -and ((Get-Item $Dest).Length -ge $MinBytes)) {
+      Unblock-File $Dest
+      Write-Output "OK: $Url ($((Get-Item $Dest).Length) bytes)"
       return $true
-    } catch {
-      Write-Output "Tentativa $i falhou para $Url : $($_.Exception.Message)"
-      Start-Sleep -Seconds 30
     }
+    $got = if (Test-Path $Dest) { (Get-Item $Dest).Length } else { 0 }
+    Write-Output "Tentativa $i incompleta para $Url ($got de pelo menos $MinBytes bytes)"
+    Start-Sleep -Seconds 15
   }
   Write-Output "FALHOU: $Url"
   return $false
@@ -34,11 +40,11 @@ function Get-Installer {
 New-Item -ItemType Directory -Path 'C:\Setup' -Force | Out-Null
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 Get-NetFirewallRule -Name 'RemoteDesktop*' | Enable-NetFirewallRule
-if (Get-Installer 'https://www.thinstuff.com/releases/ThinstuffXPVSServer-latest-x64.msi' 'C:\Setup\ThinstuffXPVSServer-x64.msi') {
+if (Get-Installer 'https://www.thinstuff.com/releases/ThinstuffXPVSServer-latest-x64.msi' 'C:\Setup\ThinstuffXPVSServer-x64.msi' 5000000) {
   Start-Process msiexec.exe -ArgumentList '/i','C:\Setup\ThinstuffXPVSServer-x64.msi','/qn','/norestart' -Wait
   Write-Output 'Thinstuff XP/VS Server instalado.'
 }
-if (Get-Installer 'https://www.noip.com/client/ducsetup.exe' 'C:\Setup\ducsetup.exe') {
+if (Get-Installer 'https://www.noip.com/client/ducsetup.exe' 'C:\Setup\ducsetup.exe' 500000) {
   Start-Process 'C:\Setup\ducsetup.exe' -ArgumentList '/VERYSILENT','/NORESTART' -Wait
   Write-Output 'No-IP DUC instalado. Abra o DUC e inicie sessao na sua conta No-IP.'
 }
