@@ -94,6 +94,38 @@ Exemplo: `VM_RAM_MB=16384 NET_MODE=nat ./create-vm.sh`
 4. **Licença Windows**: a edição Evaluation é válida por 180 dias
    (renovável com `slmgr /rearm`).
 
+### Configuração manual do acesso remoto
+
+Estes passos fazem-se pela interface do Windows, dentro da VM:
+
+| Passo | Onde |
+|---|---|
+| Autorizar utilizadores no RDP | Botão direito em *Este PC* → **Propriedades** → *Ambiente de trabalho remoto* → **Selecionar utilizadores** → *Adicionar* |
+| Uma sessão por utilizador | *XP/VS Server Administrator* → **Restrict Terminal Service users to a single remote session** |
+| Abrir a porta 3389 | *Windows Defender Firewall com Segurança Avançada* → **Regras de Entrada** → *Nova Regra* → Porta → TCP 3389 → Permitir → desmarcar **Público**. Repetir para UDP |
+| Fixar o IP | *Definições* → *Rede e Internet* → **Editar** atribuição de IP → Manual → IPv4 (IP, máscara 255.255.255.0, gateway, DNS 8.8.8.8 / 8.8.4.4) |
+| Encaminhar a porta no router | *Segurança → Acesso → Encaminhamento de portas*: regra RDP, TCP 3389, para o IP fixo do servidor |
+
+Confirmar o IP e o gateway atuais: `ipconfig` numa linha de comandos.
+
+### O que fica obrigatoriamente manual
+
+Estes passos precisam de credenciais ou de decisões que dependem da tua rede:
+
+- **Edição/licença do Thinstuff**: abre o *XP/VS Server Administrator* e
+  escolhe a edição (o trial de 14 dias permite até 10 sessões simultâneas em
+  modo demo). A janela a lembrar o período de experiência aparece em cada
+  arranque enquanto não houver licença.
+- **Conta No-IP**: regista-te, cria o *DDNS hostname* e inicia sessão no DUC.
+  Vale a pena ativar no DUC a opção *require password to modify host*.
+- **Encaminhamento de porta no router**: TCP (e opcionalmente UDP) 3389 para o
+  IP fixo do servidor. Cada router configura isto de forma diferente — procura
+  em *Segurança → Acesso → Encaminhamento de portas*.
+  ⚠️ Expor o RDP à internet é um risco real: existem varreduras automáticas à
+  procura da porta 3389 para tentar entrar. Preferível usar uma **VPN** para
+  chegar à rede local, ou pelo menos remover a regra do router quando já não
+  for precisa.
+
 ## Resolução de problemas
 
 - **Download do Thinstuff/DUC falhou dentro da VM**: vê `C:\provision.log`.
