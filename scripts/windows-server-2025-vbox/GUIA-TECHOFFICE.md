@@ -10,10 +10,15 @@ os restantes fazem-se à mão dentro da VM, com o caminho indicado.
 powershell -ExecutionPolicy Bypass -File .\criar-vm-techoffice.ps1
 ```
 
-Cria `SRV_TECHOFFICE` (servidor `SRV-DC01`), 4096 MB, 2 CPUs, disco dinâmico de
+Cria `SRV_TECHOFFICE` (servidor `SRV-DC01`), 3072 MB, 2 CPUs, disco dinâmico de
 70 GB, rede NAT, e instala o Windows Server 2025 **Desktop Experience** sem
 intervenção — inclui aceitar a licença, particionar o disco, definir a
 palavra-passe do Administrator e instalar as **Guest Additions**.
+
+> O guião pede 4096 MB, mas num host de 8 GB isso deixa o Windows anfitrião sem
+> memória e a máquina congela. Com 3072 MB o servidor funciona bem (o mínimo do
+> Desktop Experience é 2048 MB). Para seguir o guião à letra:
+> `$Env:VM_RAM_MB='4096'` antes de correr o script.
 
 Durante a instalação são gravadas screenshots automáticas em
 `D:\JARVIS-VMs\ecras\SRV_TECHOFFICE\` (uma a cada 30 s), para documentares o

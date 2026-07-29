@@ -7,7 +7,8 @@
 #
 #   VM ............ SRV_TECHOFFICE
 #   Servidor ...... SRV-DC01
-#   Memória ....... 4096 MB
+#   Memória ....... 3072 MB (o guião pede 4096, reduzido para o host de
+#                   8 GB não ficar sem memória e congelar)
 #   Processadores . 2
 #   Disco ......... 70 GB dinâmico
 #   Rede .......... NAT
@@ -24,7 +25,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $Env:VM_NAME     = 'SRV_TECHOFFICE'
 $Env:VM_HOSTNAME = 'SRV-DC01'
-$Env:VM_RAM_MB   = '4096'
+$Env:VM_RAM_MB   = '3072'       # guião: 4096 — ver nota no cabeçalho
 $Env:VM_CPUS     = '2'
 $Env:VM_DISK_MB  = '71680'      # 70 GB
 $Env:NET_MODE    = 'nat'
@@ -33,7 +34,7 @@ $Env:PROVISION   = '0'          # sem Thinstuff/No-IP: não fazem parte deste gu
 $Env:SCREENSHOTS = '1'          # registo visual automático da instalação
 
 Write-Host 'Guia TechOffice - Partes 1 a 3' -ForegroundColor Green
-Write-Host 'VM SRV_TECHOFFICE / servidor SRV-DC01 / 4096 MB / 2 CPUs / 70 GB / NAT' -ForegroundColor Green
+Write-Host 'VM SRV_TECHOFFICE / servidor SRV-DC01 / 3072 MB / 2 CPUs / 70 GB / NAT' -ForegroundColor Green
 Write-Host ''
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ScriptDir 'create-vm.ps1')
