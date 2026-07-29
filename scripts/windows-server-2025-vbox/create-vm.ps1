@@ -20,7 +20,7 @@ $DiskMB     = if ($Env:VM_DISK_MB)  { [int]$Env:VM_DISK_MB } else { 102400 }   #
 $AdminUser  = if ($Env:VM_USER)     { $Env:VM_USER }     else { 'Nuno' }
 $AdminPass  = if ($Env:VM_PASS)     { $Env:VM_PASS }     else { 'Jarvis-2025!' }  # MUDA ISTO depois do 1.º login
 $ImageIndex = if ($Env:IMAGE_INDEX) { [int]$Env:IMAGE_INDEX } else { 0 }       # 0 = auto-detetar a edição Desktop Experience (com GUI)
-$NetMode    = if ($Env:NET_MODE)    { $Env:NET_MODE }    else { 'bridged' }    # 'bridged' ou 'nat'
+$NetMode    = if ($Env:NET_MODE)    { $Env:NET_MODE }    else { 'nat' }        # 'nat' ou 'bridged'
 $BaseDir    = if ($Env:VM_BASE_DIR) { $Env:VM_BASE_DIR } else { 'D:\JARVIS-VMs' }  # onde ficam a VM e o ISO
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).

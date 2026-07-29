@@ -19,7 +19,7 @@ VM_DISK_MB="${VM_DISK_MB:-102400}"          # 100 GB (dinâmico)
 VM_USER="${VM_USER:-Nuno}"
 VM_PASS="${VM_PASS:-Jarvis-2025!}"          # MUDA ISTO depois do 1.º login
 IMAGE_INDEX="${IMAGE_INDEX:-}"              # vazio = auto-detetar a edição Desktop Experience (com GUI)
-NET_MODE="${NET_MODE:-bridged}"             # 'bridged' ou 'nat'
+NET_MODE="${NET_MODE:-nat}"                 # 'nat' ou 'bridged'
 VM_BASE_DIR="${VM_BASE_DIR:-}"              # opcional: pasta onde ficam a VM e o ISO (ex.: /mnt/dados/VMs)
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).
