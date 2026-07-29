@@ -22,6 +22,14 @@ $AdminPass  = if ($Env:VM_PASS)     { $Env:VM_PASS }     else { 'Jarvis-2025!' }
 $ImageIndex = if ($Env:IMAGE_INDEX) { [int]$Env:IMAGE_INDEX } else { 0 }       # 0 = auto-detetar a edição Desktop Experience (com GUI)
 $NetMode    = if ($Env:NET_MODE)    { $Env:NET_MODE }    else { 'nat' }        # 'nat' ou 'bridged'
 $BaseDir    = if ($Env:VM_BASE_DIR) { $Env:VM_BASE_DIR } else { 'D:\JARVIS-VMs' }  # onde ficam a VM e o ISO
+$Ecras      = if ($Env:SCREENSHOTS) { $Env:SCREENSHOTS -ne '0' } else { $true }  # registo visual automatico
+$HostName   = if ($Env:VM_HOSTNAME) { $Env:VM_HOSTNAME } else { $VmName }      # nome do servidor na rede
+$Provision  = if ($Env:PROVISION)   { $Env:PROVISION -ne '0' } else { $true }  # instalar Thinstuff + No-IP DUC
+
+# Valores pedidos explicitamente sao respeitados (com aviso) em vez de
+# reduzidos ao limite do host - por exemplo quando um guiao os fixa.
+$RamExplicito  = [bool]$Env:VM_RAM_MB
+$CpusExplicito = [bool]$Env:VM_CPUS
 
 # ISO de avaliação do Windows Server 2025 (Microsoft Evaluation Center).
 # Se o link mudar, descarrega manualmente e aponta ISO_PATH para o ficheiro.
@@ -92,8 +100,13 @@ try {
     # o proprio Windows (abaixo disso o host comeca a paginar e congela).
     $maxRam = [Math]::Min([int]($hostRamMB / 2), $hostRamMB - 5120)
     if ($RamMB -gt $maxRam) {
-        Write-Host "AVISO: $RamMB MB e demasiado para um host com $hostRamMB MB; a reduzir para $maxRam MB." -ForegroundColor Yellow
-        $RamMB = $maxRam
+        if ($RamExplicito) {
+            Write-Host "AVISO: pediste $RamMB MB num host com $hostRamMB MB (o recomendado seria $maxRam MB)." -ForegroundColor Yellow
+            Write-Host 'A respeitar o valor pedido, mas o host pode ficar muito lento. Fecha o resto das aplicacoes.' -ForegroundColor Yellow
+        } else {
+            Write-Host "AVISO: $RamMB MB e demasiado para um host com $hostRamMB MB; a reduzir para $maxRam MB." -ForegroundColor Yellow
+            $RamMB = $maxRam
+        }
     }
     if ($RamMB -lt 2048) {
         Write-Host "AVISO: apenas $RamMB MB disponiveis para a VM. O Windows Server precisa de 2048 MB no minimo" -ForegroundColor Red
@@ -102,8 +115,12 @@ try {
 
     $maxCpu = [Math]::Max(1, [int]($hostCpus / 2))
     if ($Cpus -gt $maxCpu) {
-        Write-Host "AVISO: $Cpus CPUs e demasiado para um host com $hostCpus CPUs logicos; a reduzir para $maxCpu." -ForegroundColor Yellow
-        $Cpus = $maxCpu
+        if ($CpusExplicito) {
+            Write-Host "AVISO: pediste $Cpus CPUs num host com $hostCpus logicos (o recomendado seria $maxCpu)." -ForegroundColor Yellow
+        } else {
+            Write-Host "AVISO: $Cpus CPUs e demasiado para um host com $hostCpus CPUs logicos; a reduzir para $maxCpu." -ForegroundColor Yellow
+            $Cpus = $maxCpu
+        }
     }
 } catch { }
 
@@ -205,35 +222,57 @@ try {
 # ---------------------- Comando pós-instalação ------------------------
 # provision.ps1 é comprimido (sem comentários/linhas vazias) e codificado
 # em base64 UTF-16LE para correr elevado no primeiro logon.
-$provision = Get-Content (Join-Path $ScriptDir 'provision.ps1') |
-    Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }
-$encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(($provision -join "`r`n")))
-$postCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
+$unattendedArgs = @(
+    'unattended', 'install', $VmName,
+    "--iso=$IsoPath",
+    "--user=$AdminUser",
+    "--password=$AdminPass",
+    "--full-user-name=$AdminUser",
+    "--image-index=$ImageIndex",
+    "--hostname=$HostName.local",
+    '--locale=pt_PT', '--country=PT',
+    '--install-additions'
+)
+if ($Provision) {
+    $provision = Get-Content (Join-Path $ScriptDir 'provision.ps1') |
+        Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(($provision -join "`r`n")))
+    $unattendedArgs += "--post-install-command=powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
+}
 
 # ---------------------- Instalação automática -------------------------
 Write-Host 'A configurar a instalação automática (unattended)...' -ForegroundColor Cyan
-VBox unattended install $VmName `
-    --iso=$IsoPath `
-    --user=$AdminUser `
-    --password=$AdminPass `
-    --full-user-name=$AdminUser `
-    --image-index=$ImageIndex `
-    --hostname=WSFormacao-2025.local `
-    --locale=pt_PT --country=PT `
-    --install-additions `
-    --post-install-command=$postCmd
+VBox @unattendedArgs
 
 VBox startvm $VmName --type gui
 
+# ---------------------- Registo visual --------------------------------
+# Captura o ecra da consola a cada 30s enquanto a VM correr, para
+# documentar a instalacao passo a passo. Desligar com SCREENSHOTS=0.
+$ShotDir = Join-Path $BaseDir "ecras\$VmName"
+if ($Ecras) {
+    $captura = Join-Path $ScriptDir 'capturar-ecras.ps1'
+    if (Test-Path $captura) {
+        Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $captura,
+            '-VmName', $VmName, '-OutDir', $ShotDir
+        )
+        Write-Host "Registo visual a ser gravado em: $ShotDir" -ForegroundColor Cyan
+    }
+}
+
 Write-Host ''
 Write-Host '=================================================================' -ForegroundColor Green
-Write-Host "VM '$VmName' criada e a instalar o Windows Server 2025."
+Write-Host "VM '$VmName' criada e a instalar o Windows Server 2025 ($HostName)."
+Write-Host "Recursos: $RamMB MB RAM, $Cpus CPUs, disco ate $($DiskMB/1024) GB, rede $NetMode."
 Write-Host 'A instalação é automática (30-60 min). Não toques na VM até ao'
 Write-Host 'primeiro logon automático, em que serão instalados:'
 Write-Host '  - VirtualBox Guest Additions'
-Write-Host '  - Thinstuff XP/VS Terminal Server'
-Write-Host '  - No-IP DUC'
+if ($Provision) {
+    Write-Host '  - Thinstuff XP/VS Terminal Server'
+    Write-Host '  - No-IP DUC'
+    Write-Host 'Log do provisionamento dentro da VM: C:\provision.log'
+}
 Write-Host "Credenciais: $AdminUser / $AdminPass  (muda a password!)"
-Write-Host 'Log do provisionamento dentro da VM: C:\provision.log'
-Write-Host 'Depois: abre o No-IP DUC e inicia sessão na tua conta No-IP.'
+if ($Ecras) { Write-Host "Registo visual da instalação: $ShotDir" }
 Write-Host '=================================================================' -ForegroundColor Green

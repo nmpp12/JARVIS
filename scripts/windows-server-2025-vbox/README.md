@@ -66,11 +66,40 @@ O script descarrega o ISO de avaliação da Microsoft (se ainda não existir em
 automático e corre o `provision.ps1` (elevado) que instala o Thinstuff e o DUC.
 O log fica em `C:\provision.log` dentro da VM.
 
+## Guião TechOffice (AD + SQL Server)
+
+Para o exercício da infraestrutura da *TechOffice Lda.* — VM `SRV_TECHOFFICE`,
+servidor `SRV-DC01`, Active Directory `techoffice.local` e SQL Server Express —
+usa o wrapper com os valores do guião:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\criar-vm-techoffice.ps1
+```
+
+O acompanhamento passo a passo (incluindo onde clicar em cada parte, do
+Active Directory ao SQL Server) está em [GUIA-TECHOFFICE.md](GUIA-TECHOFFICE.md).
+
+## Registo visual da instalação
+
+Durante a instalação o `capturar-ecras.ps1` grava automaticamente uma
+screenshot da consola da VM a cada 30 segundos, em
+`<VM_BASE_DIR>\ecras\<VM_NAME>\`, para documentar o processo. É lançado pelo
+`create-vm.ps1`; desliga-se com `$Env:SCREENSHOTS='0'`.
+
+Para capturar um ecrã pontualmente, a qualquer momento:
+
+```powershell
+VBoxManage controlvm <VM> screenshotpng D:\ecra.png
+```
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Predefinição | Notas |
 |---|---|---|
-| `VM_NAME` | `WSFormacao-2025` | Nome da VM no VirtualBox (o hostname do Windows é definido em conjunto) |
+| `VM_NAME` | `WSFormacao-2025` | Nome da VM no VirtualBox |
+| `VM_HOSTNAME` | igual a `VM_NAME` | Nome do servidor na rede (máx. 15 caracteres) |
+| `PROVISION` | `1` | `0` salta a instalação do Thinstuff e do No-IP DUC |
+| `SCREENSHOTS` | `1` | `0` desliga o registo visual automático |
 | `VM_CPUS` / `VM_RAM_MB` / `VM_DISK_MB` | `4` / `8192` / `102400` | Recursos |
 | `VM_USER` / `VM_PASS` | `Nuno` / `Jarvis-2025!` | Conta de administrador criada na instalação. **Muda a password após o 1.º login** |
 | `IMAGE_INDEX` | *auto* | Por omissão o script deteta e escolhe automaticamente a edição **Standard (Desktop Experience)** — a versão com ambiente de trabalho gráfico. Define manualmente só se quiseres outra edição (lista com `VBoxManage unattended detect --iso=<iso>`) |
